@@ -36,3 +36,51 @@
 @keyframes seq-under-shadow{0%{opacity:0}30%{opacity:.35}55%{opacity:1}80%{opacity:.72}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.seq-turn-face,.seq-turn-front::after,.seq-turn-back::after,.seq-turn-under-shadow{animation-duration:.16s!important}}
 @media(max-width:600px){.seq-reader-top{height:56px}.seq-reader-title{font-size:13px}.seq-reader-brand{font-size:8px;margin-right:25px}.seq-reader-main{gap:3px;padding:0 3px}.seq-book{width:min(var(--book-width),calc(100vw - 74px));max-height:calc(100dvh - 135px)}.seq-nav{width:30px;height:45px;font-size:25px}.seq-reader-bottom{min-height:55px}.seq-reader-bottom>span:nth-child(2){display:none}.seq-fs{right:5px;font-size:9px;padding:8px}.seq-num{font-size:9px}}
+
+/* Sequential Lab 1.4: soft comic-paper curl via StPageFlip.
+   Old CSS-rotation sheet rules above intentionally no longer apply. */
+.seq-book.seq-curl-book{
+  box-sizing:border-box;
+  position:relative;
+  display:block;
+  width:min(calc(76dvh * var(--book-ratio)),calc(100vw - 165px));
+  height:min(76dvh,calc((100vw - 165px) / var(--book-ratio)));
+  max-height:none;
+  min-width:0;
+  aspect-ratio:auto;
+  flex:none;
+  perspective:none;
+  transform-style:flat;
+  background:transparent;
+  box-shadow:none;
+  overflow:visible;
+  border:0;
+}
+.seq-book.seq-curl-book::after{display:none}
+.seq-curl-book .stf__wrapper{box-shadow:0 15px 40px rgba(0,0,0,.38);border-radius:2px}
+.seq-curl-book .stf__block{overflow:visible}
+.seq-flip-sheet{
+  box-sizing:border-box;
+  background:#fbf9f3;
+  opacity:1;
+  overflow:hidden;
+  width:100%;
+  height:100%;
+  isolation:isolate;
+}
+.seq-flip-sheet .seq-art{position:absolute;inset:0}
+.seq-flip-sheet.seq-empty{background:#f8f5ee}
+.seq-flip-sheet.seq-empty::after{content:'';position:absolute;inset:0;box-shadow:inset -15px 0 24px -20px rgba(0,0,0,.12);pointer-events:none}
+.seq-flip-sheet .seq-halfclip{position:absolute;inset:0}
+.seq-flip-sheet .seq-halfclip .seq-art{width:200%;height:100%}
+.seq-flip-sheet .seq-halfclip.right .seq-art{left:-100%}
+.seq-flip-sheet .seq-num{z-index:2;pointer-events:none}
+.seq-curl-book .stf__item{backface-visibility:visible}
+.seq-reader-error{max-width:400px;font-size:14px;color:#facabb;text-align:center}
+@media(max-width:600px){
+  .seq-book.seq-curl-book{
+    width:min(calc(78dvh * var(--page-ratio)),calc(100vw - 74px));
+    height:min(78dvh,calc((100vw - 74px) / var(--page-ratio)));
+  }
+  .seq-reader-bottom>span:nth-child(2){display:none}
+}
