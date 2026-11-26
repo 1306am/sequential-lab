@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#13161d" />
   <meta name="description" content="Sequential Lab: editor y lector de cómics digitales, con animación y exportación." />
   <title>Sequential Lab — Create · Animate · Publish</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="reader.css" />
+  <link rel="stylesheet" href="style.css?v=1.2" />
+  <link rel="stylesheet" href="reader.css?v=1.2" />
 </head>
 <body>
 <div id="app">
@@ -88,13 +88,13 @@
       <label><input type="checkbox" id="pdf-import-cover" checked> Usar la primera hoja como portada</label>
       <label><input type="checkbox" id="pdf-import-back"> Usar la última hoja como contraportada</label>
     </div>
-    <p class="pdf-import-note">Las páginas se guardan como JPG dentro de tu proyecto .seqlab; no se conserva el texto editable ni los elementos vectoriales del PDF. Para importar se necesita Internet.</p>
+    <p class="pdf-import-note">Se admiten PDFs de hasta <strong>250 MB</strong> y 120 páginas. Los archivos grandes pueden consumir bastante memoria: si la conversión falla, divide el PDF en partes desde Vista Previa (Mac) o expórtalo con menor tamaño. Cada hoja se guarda como JPG dentro de tu proyecto .seqlab; el texto y los vectores no quedan editables. Para importar se necesita Internet.</p>
     <div id="pdf-import-progress" class="pdf-import-progress" role="status" aria-live="polite" hidden><div id="pdf-import-progress-text">Preparando PDF…</div><progress id="pdf-import-progress-bar" max="100" value="0"></progress></div>
     <div class="pdf-import-actions"><button id="pdf-import-cancel" class="secondary">Cancelar</button><button id="pdf-import-confirm" class="button-primary">Importar páginas</button></div>
   </section>
 </div>
 <div id="reader-overlay" class="reader-overlay" hidden><div id="reader-root"></div><button class="reader-close" id="close-reader" aria-label="Salir de la lectura">✕</button></div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<script src="zip.js"></script><script src="pdf.js"></script><script src="pdf-import.js"></script><script src="reader.js"></script><script src="app.js"></script>
+<script src="zip.js?v=1.2"></script><script src="pdf.js?v=1.2"></script><script src="pdf-import.js?v=1.2"></script><script src="reader.js?v=1.2"></script><script src="app.js?v=1.2"></script>
 </body>
 </html>
