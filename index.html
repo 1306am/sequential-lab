@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#13161d" />
+  <meta name="description" content="Sequential Lab: editor y lector de cómics digitales, con animación y exportación." />
+  <title>Sequential Lab — Create · Animate · Publish</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="reader.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">S<span>Q</span></div><div><strong>SEQUENTIAL<span> LAB</span></strong><small>CREATE · ANIMATE · PUBLISH</small></div></div>
+    <div class="project-name"><input id="project-title" aria-label="Título del cómic" value="Mi primer cómic"/><span id="save-status">Proyecto local · Sin guardar</span></div>
+    <div class="top-actions">
+      <button id="new-project" class="quiet" title="Nuevo cómic">Nuevo</button>
+      <label class="button quiet" for="open-project">Abrir proyecto</label><input type="file" id="open-project" hidden accept=".seqlab,.zip" />
+      <button id="save-project" class="quiet">Guardar .seqlab</button>
+      <button id="preview-reader" class="button-primary">◧ &nbsp; Leer cómic</button>
+      <button id="export-menu" class="outline-btn">Exportar <span>▾</span></button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar page-sidebar">
+      <div class="section-heading"><span>PÁGINAS <b id="page-count">0</b></span><button id="add-page" class="circle-btn" title="Agregar página">+</button></div>
+      <div id="page-list" class="pages-list" aria-label="Páginas del cómic"></div>
+      <div class="sidebar-bottom"><button id="add-cover">+ Portada</button><button id="add-spread">+ Doble splash</button><button id="add-back">+ Contraportada</button></div>
+    </aside>
+
+    <main class="work-area">
+      <div class="canvas-toolbar"><div class="breadcrumb">COMIC / <span id="page-label">PÁGINA 1</span></div><div class="canvas-controls"><button id="move-up" class="icon-btn" title="Mover página atrás">←</button><button id="move-down" class="icon-btn" title="Mover página adelante">→</button><button id="duplicate-page" class="icon-btn" title="Duplicar página">⧉</button><button id="delete-page" class="icon-btn danger" title="Eliminar página">⌫</button></div></div>
+      <div class="canvas-region"><div class="page-surround"><div id="editor-page" class="editor-page" aria-label="Lienzo de página"></div><div class="canvas-hint">Arrastra los paneles y sus esquinas para componer la página libremente</div></div></div>
+      <div class="canvas-footer"><span id="selected-hint">Selecciona una página o panel para editarlo</span><span class="keyboard-hint">INTERACTIVO · SIN NECESIDAD DE CUENTA</span></div>
+    </main>
+
+    <aside class="sidebar inspector">
+      <div class="inspector-header"><div class="eyebrow">PROPIEDADES</div><h2 id="inspector-title">Página</h2></div>
+      <div class="inspector-content">
+        <div class="field"><label for="page-type">Tipo de página</label><select id="page-type"><option value="page">Interior</option><option value="cover">Portada</option><option value="spread">Splash doble</option><option value="back">Contraportada</option></select></div>
+        <div class="field"><label>Contenido</label><div class="segmented"><button data-mode="full" id="mode-full" class="active">Página completa</button><button data-mode="panels" id="mode-panels">Paneles libres</button></div></div>
+        <div id="full-editor">
+          <label class="drop-zone" id="page-drop"><input type="file" id="upload-full" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden /><span class="drop-icon">↥</span><strong>Subir página</strong><small>PNG · JPG · WebP · GIF · MP4 · WebM</small></label>
+          <div id="full-file-info" class="file-status">Sin archivo. La página quedará en blanco.</div>
+          <button id="remove-full" class="secondary small" hidden>Quitar archivo</button>
+        </div>
+        <div id="panels-editor" hidden>
+          <div class="section-heading tight">PLANTILLAS DE COMPOSICIÓN</div>
+          <div id="templates" class="template-grid"></div>
+          <button id="add-panel" class="secondary block">+ Agregar panel libre</button>
+          <p class="helper">Selecciona un panel y arrástralo. Modifica su tamaño desde el controlador inferior derecho.</p>
+          <div id="panel-editor" hidden>
+            <div class="subhead">PANEL SELECCIONADO <button id="remove-panel" class="link-danger">Eliminar</button></div>
+            <label class="drop-zone compact"><input type="file" id="upload-panel" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" hidden /><strong>↥ Subir imagen o video</strong><small id="panel-file-name">Ningún archivo</small></label>
+            <div class="two-fields"><label>X %<input id="panel-x" type="number" min="0" max="100" step="1" /></label><label>Y %<input id="panel-y" type="number" min="0" max="100" step="1" /></label></div>
+            <div class="two-fields"><label>Ancho %<input id="panel-w" type="number" min="2" max="100" step="1" /></label><label>Alto %<input id="panel-h" type="number" min="2" max="100" step="1" /></label></div>
+            <div class="field"><label for="panel-fit">Ajuste del contenido</label><select id="panel-fit"><option value="cover">Rellenar / recortar</option><option value="contain">Mostrar completo</option></select></div>
+            <button id="panel-front" class="secondary small">Traer al frente</button>
+          </div>
+        </div>
+        <div class="separator"></div>
+        <div class="field"><label for="page-bg">Color del papel</label><div class="color-row"><input type="color" id="page-bg" value="#f8f4ea"/><span>Fondo de la página</span></div></div>
+        <div class="field"><label for="numbering">Numeración</label><select id="numbering"><option value="auto">Numeración automática</option><option value="none">Sin números</option></select></div>
+        <label class="check-row"><input type="checkbox" id="hide-number" /> Ocultar número en esta página</label>
+        <div class="field"><label for="page-ratio">Proporciones de página</label><select id="page-ratio"><option value="0.75">Vertical · 3:4</option><option value="0.7071">Vertical · A series</option><option value="1">Cuadrada · 1:1</option><option value="1.3333">Horizontal · 4:3</option><option value="1.7778">Horizontal · 16:9</option></select></div>
+        <p class="helper">Las páginas dobles usan el doble de ancho. Al exportar PDF, cada splash doble conserva su composición horizontal.</p>
+      </div>
+      <div class="inspector-footer"><strong>SEQUENTIAL LAB <span>1.0</span></strong><small>Tu obra siempre es tuya.</small></div>
+    </aside>
+  </div>
+</div>
+
+<div id="export-popover" class="export-popover" hidden><div class="eyebrow">PUBLICAR CÓMIC</div><button id="export-pdf"><b>↓ &nbsp; PDF</b><span>Versión estática · primer fotograma</span></button><button id="export-html"><b>↓ &nbsp; HTML interactivo (.zip)</b><span>Lectura web · animaciones · GitHub Pages</span></button><button id="export-project"><b>↓ &nbsp; Proyecto editable (.seqlab)</b><span>Conserva videos, imágenes y posiciones</span></button><div class="export-note">El ZIP HTML contiene un index.html listo para publicar.</div></div>
+<div id="reader-overlay" class="reader-overlay" hidden><div id="reader-root"></div><button class="reader-close" id="close-reader" aria-label="Salir de la lectura">✕</button></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="zip.js"></script><script src="pdf.js"></script><script src="reader.js"></script><script src="app.js"></script>
+</body>
+</html>
