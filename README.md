@@ -17,12 +17,14 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 
 ## Importar PDF
 
-1. Haz clic en **Importar PDF** y selecciona un PDF de hasta 100 MB y 120 páginas.
+1. Haz clic en **Importar PDF** y selecciona un PDF de hasta 250 MB y 120 páginas.
 2. Elige **Crear cómic desde el PDF** (reemplaza las páginas actuales) o **Agregar a este cómic**.
 3. Puedes marcar la primera hoja como portada y la última como contraportada.
 4. Cada hoja se rasteriza como JPG de hasta 1900 px de lado mayor; los vectores y el texto seleccionable del PDF no se conservan.
 5. Para convertir una página en animación, selecciónala y súbele un MP4 desde **Página completa**.
 6. Guarda el proyecto editable `.seqlab` o exporta PDF / HTML interactivo como antes.
+
+Para PDFs especialmente grandes, es más estable importarlos por partes (ejemplo: páginas 1–10 y luego 11–20) usando **Agregar a este cómic**. En Mac, abre el PDF en **Vista Previa → Visualización → Miniaturas**, selecciona un grupo y arrastra esas miniaturas al escritorio para crear otro PDF; repite por grupos. También puedes comprimir una copia desde **Archivo → Exportar → Filtro Quartz → Reducción del tamaño de archivo**, teniendo en cuenta que puede reducir la calidad de las ilustraciones.
 
 La primera importación necesita conexión a Internet para obtener PDF.js. El PDF se procesa en el navegador y no se sube a un servidor de Sequential Lab. El proyecto guarda las imágenes convertidas, no el PDF original. La numeración se desactiva automáticamente al crear un cómic nuevo desde PDF, para evitar duplicar los números impresos.
 
