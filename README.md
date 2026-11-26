@@ -15,6 +15,17 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
 
+## Exportación en video sin saltos (v1.8)
+
+La exportación ahora recorre **aperturas reales del motor de hojas**, esperando a que cada giro termine antes de pedir el siguiente. Ya no utiliza un retraso fijo para calcular cuándo avanzar. Si el motor no confirma la apertura siguiente, la grabación se detiene con un mensaje de error en lugar de saltarse silenciosamente una página.
+
+En **Leer cómic → Exportar video**, elige el tipo de lectura:
+
+- **Página por página (recomendado):** muestra cada página individual, para una revisión secuencial o un video en el que no se omita ninguna página.
+- **Libro abierto:** conserva el efecto de un cómic abierto en dos páginas enfrentadas. Un giro físico cambia de apertura: por eso verás avanzar la numeración de dos en dos, sin saltarse aperturas.
+
+Se mantienen el loop de los videos MP4 de cada página, los segundos de visualización, la duración del giro y los formatos WebM / MP4 compatibles con el navegador. Los clics sobre el libro se desactivan durante la grabación para impedir giros adicionales. Al terminar se restablece el tamaño original del lector y su posición anterior.
+
 ## Lector animado y exportación de video (v1.7)
 
 **Corrección de los MP4:** el lector genera una capa de reproducción independiente del motor de curvatura de hojas. En vez de clonar el video desde las hojas transformadas (que podía congelarse en el primer fotograma), crea reproductores a partir del proyecto y los coloca sobre la apertura visible. Las animaciones se ocultan mientras la hoja gira y vuelven a reproducirse, en loop y sin sonido, cuando termina el giro. La corrección también se incluye en los HTML exportados.
