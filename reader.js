@@ -148,76 +148,137 @@
       autoSize:false
     });
     pageFlip.loadFromHTML(sheets);
-    let playbackIndex=-1;
+    // Live video layer. StPageFlip composites/transforms HTML page surfaces for
+    // realistic curl geometry, and some browsers rasterize <video> during that
+    // transformation. Render a fresh, separately composited video exactly over
+    // each OPEN page. Hide it while the sheet is physically being turned.
+    const liveLayer=document.createElement('div');
+    liveLayer.className='seq-live-video-layer';
+    liveLayer.setAttribute('aria-hidden','true');
+    root.appendChild(liveLayer);
+    let turning=false,layerGeneration=0,overlayFrame=null;
 
     function pauseAll(reset){
-      // Pause original media, and also Safari's temporary cloned video pages.
-      book.querySelectorAll('video').forEach(video=>{
-        try{video.pause();if(reset&&video.readyState)video.currentTime=0;}catch{}
+      root.querySelectorAll('video').forEach(video=>{
+        try{video.pause();if(reset&&video.readyState>0)video.currentTime=0;}catch{}
       });
     }
     function visibleIndices(){
       const i=pageFlip.getCurrentPageIndex();
       if(pageFlip.getOrientation()==='portrait'||(hasCover&&i===0)||
          (hasCover&&i===sheets.length-1))return [i];
-      return [i,i+1].filter(x=>x<sheets.length);
+      return [i,i+1].filter(index=>index<sheets.length);
     }
-    function syncActiveVideos(){
-      if(disposed)return;
-      const visible=visibleIndices();
-      const id=visible.join(':');
-      if(id===playbackIndex)return;
-      playbackIndex=id;
-      pauseAll(true);
-      const bySrc=new Map();
-      for(const idx of visible){
-        for(const video of sheets[idx].querySelectorAll('video')){
-          const group=bySrc.get(video.src)||[];
-          group.push(video);bySrc.set(video.src,group);
-          video.muted=true;video.loop=true;video.playsInline=true;
+    function clearVideoLayer(){
+      layerGeneration++;
+      if(overlayFrame!==null){cancelAnimationFrame(overlayFrame);overlayFrame=null;}
+      liveLayer.querySelectorAll('video').forEach(video=>{try{video.pause();}catch{}});
+      liveLayer.replaceChildren();
+    }
+    function videoContentForSheet(sheet){
+      // The source page is never mutated. Only duplicate its video elements
+      // and their layout containers, leaving still illustrations beneath.
+      const art=sheet.querySelector('.seq-halfclip')||sheet.querySelector('.seq-art');
+      if(!art||!art.querySelector('video'))return null;
+      const copy=art.cloneNode(true);
+      copy.querySelectorAll('img,.seq-num').forEach(node=>node.remove());
+      copy.querySelectorAll('.seq-art-panel').forEach(panel=>{
+        if(!panel.querySelector('video'))panel.remove();
+      });
+      if(copy.classList.contains('seq-art'))copy.style.background='transparent';
+      copy.querySelectorAll('.seq-art').forEach(a=>a.style.background='transparent');
+      return copy;
+    }
+    function drawVideoLayer(generation){
+      if(disposed||turning||generation!==layerGeneration||!root.isConnected)return;
+      const rootBox=root.getBoundingClientRect(),bySource=new Map();
+      for(const index of visibleIndices()){
+        const sheet=sheets[index];if(!sheet)continue;
+        const content=videoContentForSheet(sheet);if(!content)continue;
+        const rect=sheet.getBoundingClientRect();
+        if(rect.width<10||rect.height<10)continue;
+        const holder=document.createElement('div');
+        holder.className='seq-live-video-page';
+        holder.style.left=(rect.left-rootBox.left)+'px';
+        holder.style.top=(rect.top-rootBox.top)+'px';
+        holder.style.width=rect.width+'px';
+        holder.style.height=rect.height+'px';
+        holder.appendChild(content);
+        liveLayer.appendChild(holder);
+        for(const video of holder.querySelectorAll('video')){
+          video.muted=true;video.defaultMuted=true;video.loop=true;
+          video.playsInline=true;video.autoplay=true;video.controls=false;
+          video.preload='auto';video.setAttribute('playsinline','');
+          video.setAttribute('webkit-playsinline','');
+          video.addEventListener('canplay',()=>{
+            if(!disposed&&!turning&&generation===layerGeneration)video.play().catch(()=>{});
+          },{once:true});
           video.play().catch(()=>{});
+          if(!bySource.has(video.src))bySource.set(video.src,[]);
+          bySource.get(video.src).push(video);
         }
       }
-      // A video spanning two pages is rendered into two clipped sheets.
-      // Synchronize their playback whenever the browser supplies a new frame.
-      for(const pair of bySrc.values()){
-        if(pair.length<2)continue;
-        const mainVideo=pair[0],followers=pair.slice(1);
-        mainVideo.addEventListener('timeupdate',()=>{
-          if(!visible.includes(Number(mainVideo.closest('.seq-flip-sheet')?.dataset.index)))return;
-          for(const second of followers){
-            if(Math.abs(second.currentTime-mainVideo.currentTime)>.09){
-              try{second.currentTime=mainVideo.currentTime;}catch{}
+      // If a video splash spans both leaves, keep the two clipped copies
+      // at the same frame for a seamless double-page animation.
+      for(const group of bySource.values()){
+        if(group.length<2)continue;
+        const leader=group[0];
+        leader.addEventListener('timeupdate',()=>{
+          if(turning||generation!==layerGeneration)return;
+          for(const follower of group.slice(1)){
+            if(Math.abs(follower.currentTime-leader.currentTime)>.12){
+              try{follower.currentTime=leader.currentTime;}catch{}
             }
           }
-        },{signal:videoAbort.signal});
+        });
       }
     }
-
-    // Shared page index data makes sync possible without binding events to
-    // cloned sheets generated by the page-curl engine in portrait mode.
-    sheets.forEach((sheet,i)=>sheet.dataset.index=String(i));
-    const videoAbort=new AbortController();
-
-    function refresh(){
+    function scheduleVideoLayer(){
+      clearVideoLayer();
+      if(disposed||turning||document.hidden)return;
+      const generation=layerGeneration;
+      // Let the flip engine settle positions before measuring the sheet boxes.
+      overlayFrame=requestAnimationFrame(()=>{
+        overlayFrame=requestAnimationFrame(()=>{
+          overlayFrame=null;
+          drawVideoLayer(generation);
+        });
+      });
+    }
+    function refresh(playVideos=true){
       if(disposed)return;
       const visible=visibleIndices();
       const actual=visible.map(i=>logical[i]).filter(i=>i>=0);
-      const current=actual.length?Math.max(...actual)+1:Math.max(1,Math.min(originalPages.length,logical[visible[0]]+1));
+      const current=actual.length?Math.max(...actual)+1:
+        Math.max(1,Math.min(originalPages.length,logical[visible[0]]+1));
       counter.textContent=current+' / '+originalPages.length;
-      const idx=pageFlip.getCurrentPageIndex();
-      prev.disabled=idx<=0;
-      next.disabled=idx>=sheets.length-(pageFlip.getOrientation()==='portrait'?1:2);
-      syncActiveVideos();
+      const index=pageFlip.getCurrentPageIndex();
+      prev.disabled=index<=0;
+      next.disabled=index>=sheets.length-(pageFlip.getOrientation()==='portrait'?1:2);
+      if(playVideos)scheduleVideoLayer();
     }
 
-    pageFlip.on('flip',()=>refresh());
-    pageFlip.on('changeOrientation',()=>{playbackIndex=-1;refresh();});
+    pageFlip.on('flip',()=>refresh(false));
+    pageFlip.on('changeOrientation',()=>{if(!turning)refresh(true);});
     pageFlip.on('changeState',event=>{
-      if(event.data==='flipping'){pauseAll(false);playbackIndex=-1;}
-      if(event.data==='read')refresh();
+      if(event.data==='flipping'){
+        turning=true;
+        pauseAll(false);
+        clearVideoLayer();
+      }
+      if(event.data==='read'){
+        turning=false;
+        refresh(true);
+      }
     });
-    pageFlip.on('init',()=>refresh());
+    pageFlip.on('init',()=>refresh(true));
+    const onResize=()=>{if(!turning)scheduleVideoLayer();};
+    const onVisibility=()=>{
+      if(document.hidden){pauseAll(false);clearVideoLayer();}
+      else if(!turning)refresh(true);
+    };
+    window.addEventListener('resize',onResize);
+    document.addEventListener('visibilitychange',onVisibility);
 
     function move(delta){
       if(disposed)return;
@@ -240,7 +301,9 @@
     return{
       destroy(){
         if(disposed)return;
-        disposed=true;videoAbort.abort();pauseAll(true);
+        disposed=true;pauseAll(true);clearVideoLayer();
+        window.removeEventListener('resize',onResize);
+        document.removeEventListener('visibilitychange',onVisibility);
         document.removeEventListener('keydown',onKey);
         pageFlip.destroy();root.replaceChildren();
       },
