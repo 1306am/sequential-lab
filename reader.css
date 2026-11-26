@@ -98,3 +98,29 @@
 .seq-live-video-page .seq-halfclip.left .seq-art{left:0}
 .seq-live-video-page .seq-halfclip.right .seq-art{left:-100%}
 .seq-live-video-page video{display:block;pointer-events:none;object-position:center center}
+
+/* Sequential Lab 1.7 — browser-based video walkthrough exporter */
+.seq-export-video-trigger{position:absolute;left:5%;top:10px;background:#324339;color:#d8f6c2;border:1px solid #729d62;padding:10px 12px;border-radius:6px;font-size:11px;font-weight:650;cursor:pointer}
+.seq-export-video-trigger:hover{background:#405842}
+.seq-video-export-dialog[hidden]{display:none}
+.seq-video-export-dialog{position:absolute;inset:0;z-index:220;display:grid;place-items:center;background:rgba(3,7,12,.82);padding:20px;overflow:auto}
+.seq-video-export-panel{box-sizing:border-box;width:min(100%,490px);max-height:94dvh;overflow:auto;color:#e5eced;background:#212a34;border:1px solid #566579;border-radius:16px;padding:26px;box-shadow:0 25px 80px #000b}
+.seq-video-export-panel h2{font-size:22px;font-weight:750;letter-spacing:-.03em;margin:0 0 10px}
+.seq-video-export-panel p{font-size:12px;line-height:1.65;color:#c6cdd6;margin:0 0 18px}
+.seq-video-export-panel label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:600;padding:9px 0;border-top:1px solid #3d4c59}
+.seq-video-export-panel label input,.seq-video-export-panel label select{max-width:58%;background:#101720;color:#f4f6f7;border:1px solid #617084;border-radius:7px;padding:9px;font:inherit}
+.seq-video-export-panel label input{width:82px}
+.seq-video-export-panel .seq-video-export-help{font-size:11px;color:#aab9c4;margin-top:14px}
+.seq-video-export-panel .seq-video-export-error{padding:10px 12px;color:#492524;background:#ffd1c5;border-radius:7px}
+.seq-video-export-panel .seq-video-export-error[hidden]{display:none}
+.seq-video-export-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:17px}
+.seq-video-export-actions button{border:1px solid #596e7c;background:#2d3744;color:#f0f4f6;border-radius:7px;padding:11px 13px;font-size:12px;cursor:pointer}
+.seq-video-export-actions [data-video-start]{background:#bbed87;color:#182416;font-weight:750;border-color:#ccef99}
+.seq-reader.seq-recording .seq-reader-top,.seq-reader.seq-recording .seq-reader-bottom,.seq-reader.seq-recording .seq-nav{visibility:hidden!important}
+@media(max-width:600px){
+.seq-export-video-trigger{left:5px;top:10px;padding:9px 7px;font-size:9px}
+.seq-video-export-panel{padding:18px}
+.seq-video-export-panel h2{font-size:19px}
+.seq-video-export-panel label{align-items:flex-start;flex-direction:column}
+.seq-video-export-panel label input,.seq-video-export-panel label select{max-width:100%}
+}
