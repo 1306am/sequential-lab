@@ -15,6 +15,16 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
 
+## Edición rápida y MP4 en el lector (v1.6)
+
+- **Reordenar:** arrastra una miniatura de la columna izquierda y suéltala antes o después de otra (la línea verde indica la posición de inserción). Siguen disponibles los controles **Subir / Bajar**.
+- **Eliminar:** usa la **×** de la miniatura. Se solicita confirmación antes de borrar; se mantiene al menos una página.
+- **Sustituir una página estática por video:** selecciona su miniatura y usa **Página completa → Subir imagen/video** para reemplazar el archivo, o crea una página de video y elimina la estática desde la **×**.
+- **MP4/WebM:** el editor previsualiza los videos; el lector muestra un video activo sobre la hoja abierta, en loop y sin audio. Durante el doblado se oculta temporalmente para evitar que la textura de video se congele; se reactiva al terminar el giro.
+- El HTML exportado también incluye esta reproducción animada, sin depender del editor ni de una conexión a Internet una vez publicado o descargado.
+
+**Importante:** los cómics HTML exportados antes de esta versión necesitan volver a exportarse para incorporar estos cambios.
+
 ## Lector con efecto de papel (v1.4)
 
 Sequential Lab ahora usa el motor [StPageFlip](https://github.com/Nodlik/StPageFlip) (licencia MIT) para simular el doblado de una hoja desde la esquina, con sombras dinámicas y soporte táctil. El código del motor se incluye en `vendor/page-flip.browser.js`; los HTML exportados llevan su propia copia, por lo que no necesitan CDN.
