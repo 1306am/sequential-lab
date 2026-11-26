@@ -15,6 +15,22 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
 
+## Lector animado y exportación de video (v1.7)
+
+**Corrección de los MP4:** el lector genera una capa de reproducción independiente del motor de curvatura de hojas. En vez de clonar el video desde las hojas transformadas (que podía congelarse en el primer fotograma), crea reproductores a partir del proyecto y los coloca sobre la apertura visible. Las animaciones se ocultan mientras la hoja gira y vuelven a reproducirse, en loop y sin sonido, cuando termina el giro. La corrección también se incluye en los HTML exportados.
+
+**Exportar un recorrido no interactivo:**
+
+1. Desde el editor, abre **Leer cómic** y haz clic en **⏺ Exportar video**.
+2. Configura **segundos por apertura**, **duración del giro** y si los MP4 se repiten durante el tiempo elegido o se reproducen completos.
+3. Selecciona **WebM** (recomendado) o **MP4** si tu navegador admite grabación directa en ese formato.
+4. En Chrome de escritorio, haz clic en **Comenzar grabación** y, en el permiso de captura, selecciona **Esta pestaña**.
+5. La aplicación oculta sus controles, vuelve al inicio y recorre las páginas. Al terminar, descarga automáticamente el video. Puedes detener una grabación manualmente con **Esc** o desde el control de compartir de Chrome.
+
+La primera versión graba los píxeles visibles de la pestaña mediante `getDisplayMedia()` y `MediaRecorder`: el formato vertical/horizontal y la resolución del video dependen de las dimensiones de la pestaña capturada. El resultado es un video **sin audio**. No se envía el cómic ni la grabación a un servidor externo. En navegadores que no soporten captura de pestañas o el formato seleccionado, la aplicación muestra un aviso.
+
+**Importante:** los HTML exportados con versiones anteriores necesitan exportarse nuevamente. Para videos largos, ten en cuenta que la grabación conserva el archivo en memoria hasta terminar y descargarlo.
+
 ## Edición rápida y MP4 en el lector (v1.6)
 
 - **Reordenar:** arrastra una miniatura de la columna izquierda y suéltala antes o después de otra (la línea verde indica la posición de inserción). Siguen disponibles los controles **Subir / Bajar**.
