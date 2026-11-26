@@ -504,7 +504,9 @@
     next.addEventListener('click',()=>move(1));
     const onKey=event=>{
       if(!root.isConnected||disposed)return;
-      if(event.key==='Escape'&&exporting){event.preventDefault();stopVideoExport();return;}
+      if(event.key==='Escape'&&exporting){event.preventDefault();event.stopPropagation();stopVideoExport();return;}
+      if(event.key==='Escape'&&!exportDialog.hidden){event.preventDefault();event.stopPropagation();exportDialog.hidden=true;return;}
+      if(exporting&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){event.preventDefault();return;}
       if(event.key==='ArrowRight'){event.preventDefault();move(project.direction==='rtl'?-1:1);}
       if(event.key==='ArrowLeft'){event.preventDefault();move(project.direction==='rtl'?1:-1);}
     };
