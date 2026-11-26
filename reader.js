@@ -175,59 +175,111 @@
       liveLayer.querySelectorAll('video').forEach(video=>{try{video.pause();}catch{}});
       liveLayer.replaceChildren();
     }
-    function videoContentForSheet(sheet){
-      // The source page is never mutated. Only duplicate its video elements
-      // and their layout containers, leaving still illustrations beneath.
-      const art=sheet.querySelector('.seq-halfclip')||sheet.querySelector('.seq-art');
-      if(!art||!art.querySelector('video'))return null;
-      const copy=art.cloneNode(true);
-      copy.querySelectorAll('img,.seq-num').forEach(node=>node.remove());
-      copy.querySelectorAll('.seq-art-panel').forEach(panel=>{
-        if(!panel.querySelector('video'))panel.remove();
-      });
-      if(copy.classList.contains('seq-art'))copy.style.background='transparent';
-      copy.querySelectorAll('.seq-art').forEach(a=>a.style.background='transparent');
-      return copy;
+    function animatedPageContent(index){
+      // Never clone a transformed StPageFlip <video>: Safari and Chrome can
+      // present only its frozen first frame. Instantiate independent video
+      // elements directly from the immutable project media and blob URLs.
+      const logicalIndex=logical[index];
+      const page=originalPages[logicalIndex];
+      if(!page)return null;
+      const part=sheets[index]?.querySelector('.seq-halfclip')?.classList.contains('right')
+        ?'right':sheets[index]?.querySelector('.seq-halfclip')?'left':'whole';
+      const art=document.createElement('div');
+      art.className='seq-art';
+      art.style.background='transparent';
+      let count=0;
+      const addVideo=(id,container,fit)=>{
+        const media=project.media?.[id],src=media&&urls[media.id];
+        if(!media||media.type!=='video'||!src)return;
+        const video=document.createElement('video');
+        video.className='seq-media';
+        video.src=src;video.muted=true;video.defaultMuted=true;
+        video.loop=true;video.playsInline=true;video.autoplay=true;
+        video.preload='auto';video.controls=false;
+        video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');
+        video.style.objectFit=fit||'contain';
+        container.appendChild(video);count++;
+      };
+      if(page.mode==='panels'){
+        for(const panel of(page.panels||[])){
+          if(project.media?.[panel.mediaId]?.type!=='video')continue;
+          const holder=document.createElement('div');
+          holder.className='seq-art-panel';
+          Object.assign(holder.style,{
+            left:panel.x+'%',top:panel.y+'%',width:panel.w+'%',height:panel.h+'%',
+            background:'transparent',border:'0'
+          });
+          addVideo(panel.mediaId,holder,panel.fit||'cover');
+          art.appendChild(holder);
+        }
+      }else addVideo(page.mediaId,art,'contain');
+      if(!count)return null;
+      if(part==='whole')return art;
+      const clip=document.createElement('div');
+      clip.className='seq-halfclip '+part;clip.appendChild(art);
+      return clip;
+    }
+    function sheetPosition(index){
+      // Geometry is measured from StPageFlip itself, rather than from
+      // .stf__item elements (which are frequently display:none or cloned
+      // while the engine prepares a turn).
+      const bounds=pageFlip.getBoundsRect();
+      const layerBox=root.getBoundingClientRect();
+      const stageBox=(book.querySelector('.stf__block')||book).getBoundingClientRect();
+      if(!bounds||!bounds.pageWidth||!bounds.height)return null;
+      const first=pageFlip.getCurrentPageIndex();
+      const orientation=pageFlip.getOrientation();
+      let right=orientation==='portrait';
+      if(orientation!=='portrait'){
+        right=hasCover&&first===0
+          ?true
+          :hasCover&&index===sheets.length-1
+            ?false
+            :index!==first;
+      }
+      return{
+        left:stageBox.left-layerBox.left+bounds.left+(right?bounds.pageWidth:0),
+        top:stageBox.top-layerBox.top+bounds.top,
+        width:bounds.pageWidth,height:bounds.height
+      };
     }
     function drawVideoLayer(generation){
       if(disposed||turning||generation!==layerGeneration||!root.isConnected)return;
-      const rootBox=root.getBoundingClientRect(),bySource=new Map();
+      const bySource=new Map();
       for(const index of visibleIndices()){
-        const sheet=sheets[index];if(!sheet)continue;
-        const content=videoContentForSheet(sheet);if(!content)continue;
-        const rect=sheet.getBoundingClientRect();
-        if(rect.width<10||rect.height<10)continue;
+        const content=animatedPageContent(index);
+        if(!content)continue;
+        const rect=sheetPosition(index);
+        if(!rect||rect.width<10||rect.height<10)continue;
         const holder=document.createElement('div');
         holder.className='seq-live-video-page';
-        holder.style.left=(rect.left-rootBox.left)+'px';
-        holder.style.top=(rect.top-rootBox.top)+'px';
-        holder.style.width=rect.width+'px';
-        holder.style.height=rect.height+'px';
+        Object.assign(holder.style,{
+          left:rect.left+'px',top:rect.top+'px',
+          width:rect.width+'px',height:rect.height+'px'
+        });
         holder.appendChild(content);
         liveLayer.appendChild(holder);
         for(const video of holder.querySelectorAll('video')){
-          video.muted=true;video.defaultMuted=true;video.loop=true;
-          video.playsInline=true;video.autoplay=true;video.controls=false;
-          video.preload='auto';video.setAttribute('playsinline','');
-          video.setAttribute('webkit-playsinline','');
-          video.addEventListener('canplay',()=>{
+          video.addEventListener('loadeddata',()=>{
             if(!disposed&&!turning&&generation===layerGeneration)video.play().catch(()=>{});
           },{once:true});
+          // The reader button click is a user gesture and video is muted,
+          // so browsers can allow silent autoplay. Keep a retry on canplay.
           video.play().catch(()=>{});
           if(!bySource.has(video.src))bySource.set(video.src,[]);
           bySource.get(video.src).push(video);
         }
       }
-      // If a video splash spans both leaves, keep the two clipped copies
-      // at the same frame for a seamless double-page animation.
+      // A single video on a double-spread page appears in both halves.
+      // Keep those live copies on the same playback clock.
       for(const group of bySource.values()){
         if(group.length<2)continue;
-        const leader=group[0];
-        leader.addEventListener('timeupdate',()=>{
+        const master=group[0];
+        master.addEventListener('timeupdate',()=>{
           if(turning||generation!==layerGeneration)return;
           for(const follower of group.slice(1)){
-            if(Math.abs(follower.currentTime-leader.currentTime)>.12){
-              try{follower.currentTime=leader.currentTime;}catch{}
+            if(Math.abs(follower.currentTime-master.currentTime)>.12){
+              try{follower.currentTime=master.currentTime;}catch{}
             }
           }
         });
