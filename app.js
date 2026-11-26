@@ -104,7 +104,7 @@ async function importPdfDocument(){
       Object.assign(state.project.media,newMedia);
     }
     for(const [id,blob] of newFiles){state.files.set(id,blob);state.urls.set(id,URL.createObjectURL(blob));}
-    state.selectedId=newPages[0].id;state.selectedPanelId=null;
+    state.selectedId=(mode==='insert'?newPages[newPages.length-1]:newPages[0]).id;state.selectedPanelId=null;
     pdfImportState.file=null;
     $('#pdf-import-overlay').hidden=true;
     dirty();renderAll();
