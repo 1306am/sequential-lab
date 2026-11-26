@@ -97,7 +97,7 @@
 .seq-live-video-page .seq-halfclip .seq-art{width:200%;height:100%}
 .seq-live-video-page .seq-halfclip.left .seq-art{left:0}
 .seq-live-video-page .seq-halfclip.right .seq-art{left:-100%}
-.seq-live-video-page video{display:block;pointer-events:none;object-position:center center}
+.seq-live-video-page video{display:block;pointer-events:none;object-position:center center;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 
 /* Sequential Lab 1.7 — browser-based video walkthrough exporter */
 .seq-export-video-trigger{position:absolute;left:5%;top:10px;background:#324339;color:#d8f6c2;border:1px solid #729d62;padding:10px 12px;border-radius:6px;font-size:11px;font-weight:650;cursor:pointer}
