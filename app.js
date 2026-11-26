@@ -29,6 +29,95 @@ function renderInspector(){const p=getPage();if(!p)return;$('#page-type').value=
 }
 function renderAll(){const p=getPage();if(!p){state.selectedId=state.project.pages[0]?.id;state.selectedPanelId=null;}const page=getPage();$('#page-label').textContent=page?describePage(page,state.project.pages.indexOf(page)):'';renderPageList();renderCanvas();renderInspector();$('#selected-hint').textContent=page?.mode==='panels'?'Arrastra y redimensiona los paneles libremente':'Página completa · Imagen o video en loop';}
 async function attachFile(file,target){if(!file)return;if(!/^image\/(png|jpeg|webp|gif)$|^video\/(mp4|webm)$/.test(file.type)){toast('Formato no compatible. Usa PNG, JPG, WebP, GIF, MP4 o WebM.',true);return;}const id=uid();state.files.set(id,file);state.urls.set(id,URL.createObjectURL(file));state.project.media[id]={id,name:file.name,type:file.type.startsWith('video/')?'video':'image',mime:file.type,size:file.size};target.mediaId=id;dirty();renderAll();toast(file.type.startsWith('video/')?'Video cargado · se repetirá mientras la página sea visible':'Imagen cargada');}
+// Import an entire PDF as self-contained images so readers and exports work unchanged.
+const pdfImportState={file:null,busy:false,controller:null};
+function openPdfImportDialog(file){
+  if(!file)return;
+  if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){toast('Selecciona un documento PDF.',true);return;}
+  pdfImportState.file=file;
+  $('#pdf-import-filename').textContent=file.name+' · '+(file.size/1048576).toFixed(1)+' MB';
+  $('#pdf-import-progress').hidden=true;
+  $('#pdf-import-progress-bar').value=0;
+  const hasContent=state.project.pages.some(p=>p.mediaId||p.panels.some(q=>q.mediaId));
+  document.querySelector('input[name="pdf-import-mode"][value="'+(hasContent?'insert':'replace')+'"]').checked=true;
+  refreshPdfImportOptions();
+  $('#pdf-import-overlay').hidden=false;
+}
+function refreshPdfImportOptions(){
+  const mode=document.querySelector('input[name="pdf-import-mode"]:checked').value;
+  $('#pdf-import-cover-options').hidden=mode!=='replace';
+}
+function closePdfImportDialog(){
+  if(pdfImportState.busy){pdfImportState.controller?.abort();$('#pdf-import-progress-text').textContent='Cancelando importación…';return;}
+  pdfImportState.file=null;
+  $('#pdf-import-overlay').hidden=true;
+}
+function closestRatio(ratio){
+  const values=[.75,.7071,1,1.3333,1.7778];
+  return values.reduce((best,v)=>Math.abs(v-ratio)<Math.abs(best-ratio)?v:best,values[0]);
+}
+async function importPdfDocument(){
+  const file=pdfImportState.file;if(!file||pdfImportState.busy)return;
+  const mode=document.querySelector('input[name="pdf-import-mode"]:checked').value;
+  const makeCover=$('#pdf-import-cover').checked,makeBack=$('#pdf-import-back').checked;
+  pdfImportState.busy=true;
+  pdfImportState.controller=new AbortController();
+  const btn=$('#pdf-import-confirm'),cancel=$('#pdf-import-cancel');
+  btn.disabled=true;btn.textContent='Importando…';cancel.textContent='Cancelar importación';
+  document.querySelectorAll('input[name="pdf-import-mode"],#pdf-import-cover,#pdf-import-back').forEach(e=>e.disabled=true);
+  $('#pdf-import-progress').hidden=false;
+  const progress=(completed,total)=>{
+    $('#pdf-import-progress-text').textContent='Convirtiendo páginas · '+completed+' de '+total;
+    $('#pdf-import-progress-bar').value=Math.round(100*completed/total);
+  };
+  try{
+    // Process all pages before modifying the project, so an error cannot erase existing work.
+    const images=await SeqPdfImport.rasterize(file,{onProgress:progress,signal:pdfImportState.controller.signal});
+    if(pdfImportState.controller.signal.aborted)throw new DOMException('Importación cancelada','AbortError');
+    if(!images.length)throw Error('El archivo PDF está vacío.');
+    const portrait=images.find(i=>i.width/i.height<1);
+    const baseRatio=portrait?portrait.width/portrait.height:images[0].width/images[0].height;
+    const newMedia={},newFiles=new Map(),newPages=[];
+    images.forEach((image,i)=>{
+      const id=uid(),name=file.name.replace(/\.pdf$/i,'')+'-pagina-'+String(i+1).padStart(3,'0')+'.jpg';
+      const blob=new File([image.blob],name,{type:'image/jpeg'});
+      newMedia[id]={id,name,type:'image',mime:'image/jpeg',size:blob.size};
+      newFiles.set(id,blob);
+      let type=(baseRatio<1&&image.width/image.height>Math.max(1.15,baseRatio*1.65))?'spread':'page';
+      if(mode==='replace'&&i===0&&makeCover)type='cover';
+      if(mode==='replace'&&i===images.length-1&&makeBack&&i!==0)type='back';
+      const page=newPage(type);page.mediaId=id;newPages.push(page);
+    });
+    if(mode==='replace'){
+      for(const url of state.urls.values())URL.revokeObjectURL(url);
+      state.urls.clear();state.files.clear();imageCache.clear();
+      state.project.pages=newPages;
+      state.project.media=newMedia;
+      state.project.ratio=closestRatio(baseRatio);
+      // Most imported PDFs already contain printed page numbers.
+      state.project.numbering='none';
+      if(state.project.title==='Mi primer cómic')state.project.title=file.name.replace(/\.pdf$/i,'');
+      $('#project-title').value=state.project.title;
+    }else{
+      const idx=state.project.pages.findIndex(p=>p.id===state.selectedId);
+      state.project.pages.splice(idx+1,0,...newPages);
+      Object.assign(state.project.media,newMedia);
+    }
+    for(const [id,blob] of newFiles){state.files.set(id,blob);state.urls.set(id,URL.createObjectURL(blob));}
+    state.selectedId=newPages[0].id;state.selectedPanelId=null;
+    pdfImportState.file=null;
+    $('#pdf-import-overlay').hidden=true;
+    dirty();renderAll();
+    toast(newPages.length+' páginas importadas · Puedes sustituir una por MP4');
+  }catch(error){
+    if(error.name==='AbortError'){toast('Importación cancelada. Tu cómic no cambió.');$('#pdf-import-overlay').hidden=true;pdfImportState.file=null;}
+    else{console.error(error);toast('No se pudo importar el PDF: '+(error.message||error),true);$('#pdf-import-progress-text').textContent='No se pudo importar. Comprueba el archivo o vuelve a intentarlo.';}
+  }finally{
+    pdfImportState.busy=false;pdfImportState.controller=null;
+    btn.disabled=false;btn.textContent='Importar páginas';cancel.textContent='Cancelar';
+    document.querySelectorAll('input[name="pdf-import-mode"],#pdf-import-cover,#pdf-import-back').forEach(e=>e.disabled=false);
+  }
+}
 function addPage(type='page'){const p=newPage(type),idx=state.project.pages.findIndex(v=>v.id===state.selectedId);state.project.pages.splice(idx+1,0,p);state.selectedId=p.id;state.selectedPanelId=null;dirty();renderAll();}
 function applyTemplate(template){const p=getPage();if(!p||!confirmIfReplace(p))return;p.panels=template.rects.map(([x,y,w,h],i)=>({id:uid(),x,y,w,h,mediaId:null,fit:'cover',z:i+1}));state.selectedPanelId=p.panels[0]?.id;dirty();renderAll();}
 function confirmIfReplace(p){return !p.panels.some(v=>v.mediaId)||confirm('Este diseño reemplazará los paneles actuales y sus posiciones. Los archivos del proyecto no se borrarán. ¿Continuar?');}
@@ -67,6 +156,11 @@ function setupHandlers(){ $('#project-title').addEventListener('input',e=>{state
   $('#page-bg').oninput=e=>{getPage().bg=e.target.value;dirty();renderCanvas();};$('#numbering').onchange=e=>{state.project.numbering=e.target.value;dirty();renderCanvas();};$('#hide-number').onchange=e=>{getPage().hideNumber=e.target.checked;dirty();renderCanvas();};$('#page-ratio').onchange=e=>{state.project.ratio=Number(e.target.value);dirty();renderCanvas();};
   $('#move-up').onclick=()=>shiftPage(-1);$('#move-down').onclick=()=>shiftPage(1);$('#duplicate-page').onclick=()=>{const p=getPage(),clone=JSON.parse(JSON.stringify(p));clone.id=uid();clone.panels.forEach(v=>v.id=uid());const i=state.project.pages.indexOf(p);state.project.pages.splice(i+1,0,clone);state.selectedId=clone.id;state.selectedPanelId=null;dirty();renderAll();};$('#delete-page').onclick=()=>{if(state.project.pages.length===1){toast('Debe quedar al menos una página',true);return;}if(!confirm('¿Eliminar esta página del cómic?'))return;const i=state.project.pages.findIndex(p=>p.id===state.selectedId);state.project.pages.splice(i,1);state.selectedId=state.project.pages[Math.max(0,i-1)].id;state.selectedPanelId=null;dirty();renderAll();};
   $('#new-project').onclick=()=>{if(!confirm('¿Empezar un cómic nuevo? Guarda primero tu proyecto .seqlab si deseas conservarlo.'))return;state.project=fresh();state.selectedId=state.project.pages[1].id;state.selectedPanelId=null;for(const url of state.urls.values())URL.revokeObjectURL(url);state.files.clear();state.urls.clear();imageCache.clear();$('#project-title').value=state.project.title;dirty();renderAll();};
+  $('#import-pdf-file').addEventListener('change',e=>{openPdfImportDialog(e.target.files?.[0]);e.target.value='';});
+  document.querySelectorAll('input[name="pdf-import-mode"]').forEach(input=>input.addEventListener('change',refreshPdfImportOptions));
+  $('#pdf-import-confirm').onclick=importPdfDocument;
+  $('#pdf-import-cancel').onclick=closePdfImportDialog;
+  $('#pdf-import-overlay').addEventListener('click',e=>{if(e.target===$('#pdf-import-overlay'))closePdfImportDialog();});
   $('#save-project').onclick=()=>runExport(exportProject);$('#open-project').onchange=e=>{if(e.target.files?.[0])openProject(e.target.files[0]);e.target.value='';};
   $('#export-menu').onclick=()=>{$('#export-popover').hidden=!$('#export-popover').hidden;};for(const [id,fn] of [['export-project',exportProject],['export-html',exportHtml],['export-pdf',exportPdf]])$(('#'+id)).onclick=()=>{$('#export-popover').hidden=true;runExport(fn);};
   $('#preview-reader').onclick=()=>{const overlay=$('#reader-overlay');overlay.hidden=false;state.reader=SequentialReader.mount($('#reader-root'),state.project,Object.fromEntries(state.urls));};$('#close-reader').onclick=()=>{state.reader?.destroy();state.reader=null;$('#reader-overlay').hidden=true;};
