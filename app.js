@@ -22,7 +22,93 @@ function wirePanelDrag(el,panel,handle){el.addEventListener('pointerdown',e=>{if
   });}
 function describePage(p,i){return ({cover:'PORTADA',page:`PÁGINA ${numbersMap().get(p.id)||i+1}`,spread:'DOBLE SPLASH',back:'CONTRAPORTADA'})[p.type];}
 function pageThumbnail(p){const wrap=document.createElement('div');wrap.className='page-thumb '+(p.type==='spread'?'spread':'');const mediaId=p.mode==='full'?p.mediaId:p.panels[0]?.mediaId;const media=state.project.media[mediaId],src=state.urls.get(mediaId);if(src&&media){const el=document.createElement(media.type==='video'?'video':'img');el.src=src;el.muted=true;el.preload='metadata';wrap.appendChild(el);}else wrap.textContent=p.type==='spread'?'↔':'▧';return wrap;}
-function renderPageList(){const parent=$('#page-list');parent.textContent='';state.project.pages.forEach((p,i)=>{const btn=document.createElement('button');btn.className='page-tile'+(p.id===state.selectedId?' active':'');btn.appendChild(pageThumbnail(p));const text=document.createElement('span'),name=document.createElement('strong'),small=document.createElement('small');name.textContent=describePage(p,i);small.textContent=p.mode==='full'?'Página completa':`${p.panels.length} panel${p.panels.length===1?'':'es'}`;text.append(name,small);btn.appendChild(text);btn.addEventListener('click',()=>{state.selectedId=p.id;state.selectedPanelId=null;renderAll();});parent.appendChild(btn);});$('#page-count').textContent=state.project.pages.length;}
+// A thumbnail is a draggable surface with a real (non-nested) delete button.
+// Keep the selected page stable while the source and destination swap positions.
+let draggingPageId=null;
+function reorderPage(sourceId,targetId,after){
+  const pages=state.project.pages;
+  if(!sourceId||sourceId===targetId)return;
+  const fromIndex=pages.findIndex(p=>p.id===sourceId);
+  if(fromIndex<0||!pages.some(p=>p.id===targetId))return;
+  const [moving]=pages.splice(fromIndex,1);
+  const targetIndex=pages.findIndex(p=>p.id===targetId);
+  pages.splice(targetIndex+(after?1:0),0,moving);
+  state.selectedId=sourceId;state.selectedPanelId=null;
+  dirty();renderAll();
+  toast('Orden de páginas actualizado');
+}
+function deletePageById(id){
+  const pages=state.project.pages;
+  if(pages.length<2){toast('Debe quedar al menos una página',true);return;}
+  const index=pages.findIndex(p=>p.id===id);if(index<0)return;
+  const page=pages[index];
+  if(!confirm('¿Eliminar '+describePage(page,index).toLowerCase()+' del cómic? Esta acción no se puede deshacer.'))return;
+  pages.splice(index,1);
+  if(state.selectedId===id){
+    state.selectedId=pages[Math.min(index,pages.length-1)].id;
+    state.selectedPanelId=null;
+  }
+  dirty();renderAll();toast('Página eliminada');
+}
+function clearPageDropHints(){
+  document.querySelectorAll('#page-list .page-tile').forEach(el=>el.classList.remove('drag-before','drag-after','dragging'));
+}
+function renderPageList(){
+  const parent=$('#page-list');parent.textContent='';
+  state.project.pages.forEach((p,i)=>{
+    const tile=document.createElement('div');
+    tile.className='page-tile'+(p.id===state.selectedId?' active':'');
+    tile.dataset.pageId=p.id;
+    tile.tabIndex=0;tile.setAttribute('role','button');
+    tile.setAttribute('aria-label',describePage(p,i)+'. Arrastra para reordenar.');
+    tile.draggable=true;
+    tile.appendChild(pageThumbnail(p));
+    const info=document.createElement('span'),name=document.createElement('strong'),small=document.createElement('small');
+    name.textContent=describePage(p,i);
+    const animated=p.mode==='full'
+      ? state.project.media[p.mediaId]?.type==='video'
+      : p.panels.some(panel=>state.project.media[panel.mediaId]?.type==='video');
+    small.textContent=(p.mode==='full'?'Página completa':p.panels.length+' panel'+(p.panels.length===1?'':'es'))+(animated?' · MP4':'');
+    info.append(name,small);tile.appendChild(info);
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='page-tile-delete';
+    remove.textContent='×';remove.title='Eliminar página';remove.draggable=false;
+    remove.setAttribute('aria-label','Eliminar '+describePage(p,i));
+    remove.addEventListener('click',event=>{event.stopPropagation();deletePageById(p.id);});
+    tile.appendChild(remove);
+    tile.addEventListener('click',()=>{state.selectedId=p.id;state.selectedPanelId=null;renderAll();});
+    tile.addEventListener('keydown',e=>{
+      if(e.target!==tile)return;
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();state.selectedId=p.id;state.selectedPanelId=null;renderAll();}
+      if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deletePageById(p.id);}
+    });
+    tile.addEventListener('dragstart',e=>{
+      if(e.target!==tile)return;
+      draggingPageId=p.id;
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/x-sequential-page',p.id);
+      tile.classList.add('dragging');
+    });
+    tile.addEventListener('dragover',e=>{
+      if(!draggingPageId||draggingPageId===p.id)return;
+      e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';
+      clearPageDropHints();
+      const after=e.clientY>=tile.getBoundingClientRect().top+tile.getBoundingClientRect().height/2;
+      tile.classList.add(after?'drag-after':'drag-before');
+    });
+    tile.addEventListener('drop',e=>{
+      if(!draggingPageId)return;
+      e.preventDefault();e.stopPropagation();
+      const source=draggingPageId;draggingPageId=null;
+      const after=e.clientY>=tile.getBoundingClientRect().top+tile.getBoundingClientRect().height/2;
+      clearPageDropHints();
+      reorderPage(source,p.id,after);
+    });
+    tile.addEventListener('dragend',()=>{draggingPageId=null;clearPageDropHints();});
+    parent.appendChild(tile);
+  });
+  $('#page-count').textContent=state.project.pages.length;
+}
 function renderInspector(){const p=getPage();if(!p)return;$('#page-type').value=p.type;$('#page-bg').value=p.bg;$('#numbering').value=state.project.numbering;$('#page-ratio').value=String(state.project.ratio);$('#hide-number').checked=!!p.hideNumber;$('#hide-number').disabled=p.type==='cover'||p.type==='back';$('#mode-full').classList.toggle('active',p.mode==='full');$('#mode-panels').classList.toggle('active',p.mode==='panels');$('#full-editor').hidden=p.mode!=='full';$('#panels-editor').hidden=p.mode!=='panels';$('#inspector-title').textContent=p.type==='spread'?'Doble splash':p.type==='cover'?'Portada':p.type==='back'?'Contraportada':'Página interior';
   const m=state.project.media[p.mediaId];$('#full-file-info').textContent=m?`${m.name} · ${m.type==='video'?'Animación en loop':'Ilustración estática'}`:'Sin archivo. La página quedará en blanco.';$('#remove-full').hidden=!m;
   const panel=getPanel();$('#panel-editor').hidden=p.mode!=='panels'||!panel;if(panel){for(const key of ['x','y','w','h'])$('#panel-'+key).value=Math.round(panel[key]);$('#panel-fit').value=panel.fit||'cover';$('#panel-file-name').textContent=state.project.media[panel.mediaId]?.name||'Ningún archivo';}
@@ -161,7 +247,7 @@ function setupHandlers(){ $('#project-title').addEventListener('input',e=>{state
   $('#add-panel').onclick=addPanel;$('#remove-panel').onclick=()=>{const p=getPage();p.panels=p.panels.filter(x=>x.id!==state.selectedPanelId);state.selectedPanelId=null;dirty();renderAll();};$('#panel-front').onclick=()=>{const panel=getPanel();if(!panel)return;panel.z=Math.max(0,...getPage().panels.map(v=>v.z||0))+1;dirty();renderCanvas();};$('#panel-fit').onchange=e=>{const panel=getPanel();if(panel){panel.fit=e.target.value;dirty();renderCanvas();}};
   for(const key of ['x','y','w','h'])$('#panel-'+key).addEventListener('change',e=>{const p=getPanel();if(!p)return;let v=Number(e.target.value);if(!Number.isFinite(v))return;v=Math.max(key==='x'||key==='y'?0:2,Math.min(v,key==='x'?100-p.w:key==='y'?100-p.h:key==='w'?100-p.x:100-p.y));p[key]=v;dirty();renderCanvas();renderInspector();});
   $('#page-bg').oninput=e=>{getPage().bg=e.target.value;dirty();renderCanvas();};$('#numbering').onchange=e=>{state.project.numbering=e.target.value;dirty();renderCanvas();};$('#hide-number').onchange=e=>{getPage().hideNumber=e.target.checked;dirty();renderCanvas();};$('#page-ratio').onchange=e=>{state.project.ratio=Number(e.target.value);dirty();renderCanvas();};
-  $('#move-up').onclick=()=>shiftPage(-1);$('#move-down').onclick=()=>shiftPage(1);$('#duplicate-page').onclick=()=>{const p=getPage(),clone=JSON.parse(JSON.stringify(p));clone.id=uid();clone.panels.forEach(v=>v.id=uid());const i=state.project.pages.indexOf(p);state.project.pages.splice(i+1,0,clone);state.selectedId=clone.id;state.selectedPanelId=null;dirty();renderAll();};$('#delete-page').onclick=()=>{if(state.project.pages.length===1){toast('Debe quedar al menos una página',true);return;}if(!confirm('¿Eliminar esta página del cómic?'))return;const i=state.project.pages.findIndex(p=>p.id===state.selectedId);state.project.pages.splice(i,1);state.selectedId=state.project.pages[Math.max(0,i-1)].id;state.selectedPanelId=null;dirty();renderAll();};
+  $('#move-up').onclick=()=>shiftPage(-1);$('#move-down').onclick=()=>shiftPage(1);$('#duplicate-page').onclick=()=>{const p=getPage(),clone=JSON.parse(JSON.stringify(p));clone.id=uid();clone.panels.forEach(v=>v.id=uid());const i=state.project.pages.indexOf(p);state.project.pages.splice(i+1,0,clone);state.selectedId=clone.id;state.selectedPanelId=null;dirty();renderAll();};$('#delete-page').onclick=()=>deletePageById(state.selectedId);
   $('#new-project').onclick=()=>{if(!confirm('¿Empezar un cómic nuevo? Guarda primero tu proyecto .seqlab si deseas conservarlo.'))return;state.project=fresh();state.selectedId=state.project.pages[1].id;state.selectedPanelId=null;for(const url of state.urls.values())URL.revokeObjectURL(url);state.files.clear();state.urls.clear();imageCache.clear();$('#project-title').value=state.project.title;dirty();renderAll();};
   $('#import-pdf-file').addEventListener('change',e=>{openPdfImportDialog(e.target.files?.[0]);e.target.value='';});
   document.querySelectorAll('input[name="pdf-import-mode"]').forEach(input=>input.addEventListener('change',refreshPdfImportOptions));
