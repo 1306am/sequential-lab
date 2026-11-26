@@ -220,8 +220,8 @@ async function exportHtml(){const manifest=projectManifest();const entries=[];co
   try{
     const read=async path=>{const response=await fetch(path);if(!response.ok)throw Error('No se pudo cargar '+path);return response.text();};
     [readerJS,readerCSS,curlJS,curlLicense]=await Promise.all([
-      read('./reader.js?v=1.8'),read('./reader.css?v=1.8'),
-      read('./vendor/page-flip.browser.js?v=1.8'),read('./vendor/STPAGEFLIP-LICENSE.txt')
+      read('./reader.js?v=1.9'),read('./reader.css?v=1.9'),
+      read('./vendor/page-flip.browser.js?v=1.9'),read('./vendor/STPAGEFLIP-LICENSE.txt')
     ]);
   }catch(e){throw Error('No se pudieron incluir los archivos del lector. Abre Sequential Lab desde GitHub Pages y actualiza la página. '+e.message);}
   // Guard against accidental embedded script closure from user-controlled titles.
