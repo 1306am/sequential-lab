@@ -15,6 +15,17 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
 
+## Lector ampliado al tamaño de pantalla (v1.9)
+
+El modo **Leer cómic** utiliza casi todo el espacio disponible, en lugar de limitar el libro al 76% de la altura y reservar márgenes laterales grandes para las flechas. Los controles laterales se superponen discretamente en los extremos de la pantalla.
+
+- Escritorio con espacio suficiente: dos páginas enfrentadas, manteniendo la proporción original.
+- Ventanas pequeñas y iPad en vertical: una página más grande (ya no limitada artificialmente a 490 px).
+- Fullscreen: el libro crece al cambiar el tamaño de la ventana, sin recortar la ilustración.
+- Exportación de video en modo de página individual: aprovecha el nuevo encuadre ampliado, con un máximo de 860 px de anchura para preservar el modo de una hoja.
+
+El tamaño se recalcula cuando cambia la ventana. El efecto de hoja flexible, los MP4 en loop, los proyectos y las exportaciones existentes se conservan.
+
 ## Exportación en video sin saltos (v1.8)
 
 La exportación ahora recorre **aperturas reales del motor de hojas**, esperando a que cada giro termine antes de pedir el siguiente. Ya no utiliza un retraso fijo para calcular cuándo avanzar. Si el motor no confirma la apertura siguiente, la grabación se detiene con un mensaje de error en lugar de saltarse silenciosamente una página.
