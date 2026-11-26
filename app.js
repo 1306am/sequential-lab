@@ -21,7 +21,7 @@ function wirePanelDrag(el,panel,handle){el.addEventListener('pointerdown',e=>{if
     el.addEventListener('pointermove',onMove);el.addEventListener('pointerup',onEnd);el.addEventListener('pointercancel',onEnd);
   });}
 function describePage(p,i){return ({cover:'PORTADA',page:`PÁGINA ${numbersMap().get(p.id)||i+1}`,spread:'DOBLE SPLASH',back:'CONTRAPORTADA'})[p.type];}
-function pageThumbnail(p){const wrap=document.createElement('div');wrap.className='page-thumb '+(p.type==='spread'?'spread':'');const mediaId=p.mode==='full'?p.mediaId:p.panels[0]?.mediaId;const media=state.project.media[mediaId],src=state.urls.get(mediaId);if(src&&media){const el=document.createElement(media.type==='video'?'video':'img');el.src=src;el.muted=true;el.preload='metadata';wrap.appendChild(el);}else wrap.textContent=p.type==='spread'?'↔':'▧';return wrap;}
+function pageThumbnail(p){const wrap=document.createElement('div');wrap.className='page-thumb '+(p.type==='spread'?'spread':'');const mediaId=p.mode==='full'?p.mediaId:p.panels[0]?.mediaId;const media=state.project.media[mediaId],src=state.urls.get(mediaId);if(src&&media){const el=document.createElement(media.type==='video'?'video':'img');el.src=src;el.muted=true;el.preload='metadata';el.draggable=false;wrap.appendChild(el);}else wrap.textContent=p.type==='spread'?'↔':'▧';return wrap;}
 // A thumbnail is a draggable surface with a real (non-nested) delete button.
 // Keep the selected page stable while the source and destination swap positions.
 let draggingPageId=null;
@@ -83,7 +83,7 @@ function renderPageList(){
       if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deletePageById(p.id);}
     });
     tile.addEventListener('dragstart',e=>{
-      if(e.target!==tile)return;
+      if(e.target.closest?.('.page-tile-delete')){e.preventDefault();return;}
       draggingPageId=p.id;
       e.dataTransfer.effectAllowed='move';
       e.dataTransfer.setData('text/x-sequential-page',p.id);
