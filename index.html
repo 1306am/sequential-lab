@@ -16,6 +16,7 @@
     <div class="project-name"><input id="project-title" aria-label="Título del cómic" value="Mi primer cómic"/><span id="save-status">Proyecto local · Sin guardar</span></div>
     <div class="top-actions">
       <button id="new-project" class="quiet" title="Nuevo cómic">Nuevo</button>
+      <label class="button quiet" for="import-pdf-file">Importar PDF</label><input type="file" id="import-pdf-file" hidden accept=".pdf,application/pdf" />
       <label class="button quiet" for="open-project">Abrir proyecto</label><input type="file" id="open-project" hidden accept=".seqlab,.zip" />
       <button id="save-project" class="quiet">Guardar .seqlab</button>
       <button id="preview-reader" class="button-primary">◧ &nbsp; Leer cómic</button>
@@ -73,8 +74,27 @@
 </div>
 
 <div id="export-popover" class="export-popover" hidden><div class="eyebrow">PUBLICAR CÓMIC</div><button id="export-pdf"><b>↓ &nbsp; PDF</b><span>Versión estática · primer fotograma</span></button><button id="export-html"><b>↓ &nbsp; HTML interactivo (.zip)</b><span>Lectura web · animaciones · GitHub Pages</span></button><button id="export-project"><b>↓ &nbsp; Proyecto editable (.seqlab)</b><span>Conserva videos, imágenes y posiciones</span></button><div class="export-note">El ZIP HTML contiene un index.html listo para publicar.</div></div>
+<div id="pdf-import-overlay" class="pdf-import-overlay" hidden>
+  <section class="pdf-import-modal" role="dialog" aria-modal="true" aria-labelledby="pdf-import-title">
+    <div class="eyebrow">IMPORTAR / CÓMIC COMPLETO</div>
+    <h2 id="pdf-import-title">Convertir PDF en páginas</h2>
+    <p class="pdf-import-description">Cada hoja del PDF se convertirá en una página de imagen. Después podrás sustituir cualquier página por un MP4, reorganizar páginas y exportar el cómic como siempre.</p>
+    <div id="pdf-import-filename" class="pdf-import-filename"></div>
+    <fieldset class="pdf-import-options"><legend>¿Dónde colocamos las páginas?</legend>
+      <label><input type="radio" name="pdf-import-mode" value="replace" checked> <span><strong>Crear cómic desde el PDF</strong><small>Reemplaza las páginas actuales. Guarda antes tu proyecto si lo necesitas.</small></span></label>
+      <label><input type="radio" name="pdf-import-mode" value="insert"> <span><strong>Agregar a este cómic</strong><small>Inserta todas las páginas después de la página seleccionada.</small></span></label>
+    </fieldset>
+    <div id="pdf-import-cover-options" class="pdf-import-cover-options">
+      <label><input type="checkbox" id="pdf-import-cover" checked> Usar la primera hoja como portada</label>
+      <label><input type="checkbox" id="pdf-import-back"> Usar la última hoja como contraportada</label>
+    </div>
+    <p class="pdf-import-note">Las páginas se guardan como JPG dentro de tu proyecto .seqlab; no se conserva el texto editable ni los elementos vectoriales del PDF. Para importar se necesita Internet.</p>
+    <div id="pdf-import-progress" class="pdf-import-progress" role="status" aria-live="polite" hidden><div id="pdf-import-progress-text">Preparando PDF…</div><progress id="pdf-import-progress-bar" max="100" value="0"></progress></div>
+    <div class="pdf-import-actions"><button id="pdf-import-cancel" class="secondary">Cancelar</button><button id="pdf-import-confirm" class="button-primary">Importar páginas</button></div>
+  </section>
+</div>
 <div id="reader-overlay" class="reader-overlay" hidden><div id="reader-root"></div><button class="reader-close" id="close-reader" aria-label="Salir de la lectura">✕</button></div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<script src="zip.js"></script><script src="pdf.js"></script><script src="reader.js"></script><script src="app.js"></script>
+<script src="zip.js"></script><script src="pdf.js"></script><script src="pdf-import.js"></script><script src="reader.js"></script><script src="app.js"></script>
 </body>
 </html>
