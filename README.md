@@ -15,6 +15,18 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
 
+## Lector con efecto de papel (v1.4)
+
+Sequential Lab ahora usa el motor [StPageFlip](https://github.com/Nodlik/StPageFlip) (licencia MIT) para simular el doblado de una hoja desde la esquina, con sombras dinámicas y soporte táctil. El código del motor se incluye en `vendor/page-flip.browser.js`; los HTML exportados llevan su propia copia, por lo que no necesitan CDN.
+
+- Las páginas interiores se comportan como papel flexible. La portada/contraportada conservan mayor rigidez.
+- Los MP4 siguen en loop únicamente mientras sus páginas están abiertas.
+- Las splash pages dobles se dividen visualmente entre las dos hojas enfrentadas, sin modificar el proyecto original.
+- La lectura en pantallas angostas pasa a una página, mientras el escritorio muestra dos.
+- Los proyectos `.seqlab`, la importación de PDF y la exportación de PDF permanecen compatibles.
+
+**Nota:** vuelve a exportar los HTML creados con versiones anteriores para obtener el nuevo efecto.
+
 ## Importar PDF
 
 1. Haz clic en **Importar PDF** y selecciona un PDF de hasta 250 MB y 120 páginas.
