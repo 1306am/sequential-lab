@@ -76,7 +76,11 @@
     const counter=document.createElement('span'),hint=document.createElement('span');
     hint.textContent='ARRASTRA UNA ESQUINA O USA LAS FLECHAS PARA HOJEAR';
     const fs=document.createElement('button');fs.className='seq-fs';fs.textContent='⛶ Pantalla completa';
-    footer.append(counter,hint,fs);
+    const videoExportButton=document.createElement('button');
+    videoExportButton.type='button';
+    videoExportButton.className='seq-export-video-trigger';
+    videoExportButton.textContent='⏺ Exportar video';
+    footer.append(counter,hint,videoExportButton,fs);
     root.append(head,main,footer);
 
     if(!window.St||!window.St.PageFlip){
@@ -332,6 +336,165 @@
     window.addEventListener('resize',onResize);
     document.addEventListener('visibilitychange',onVisibility);
 
+    // Automated screen capture of this reader tab. This works in Chromium
+    // desktop browsers with getDisplayMedia + MediaRecorder. Neither page
+    // content nor videos are uploaded to any server.
+    const exportDialog=document.createElement('div');
+    exportDialog.className='seq-video-export-dialog';
+    exportDialog.hidden=true;
+    exportDialog.innerHTML='<section class="seq-video-export-panel" role="dialog" aria-modal="true" aria-label="Exportar recorrido en video">'+
+      '<h2>Exportar recorrido en video</h2>'+
+      '<p>La aplicación pasará las hojas automáticamente y grabará el cómic. En Chrome, selecciona <strong>Esta pestaña</strong> cuando aparezca el permiso para compartir pantalla.</p>'+
+      '<label>Segundos por apertura <input data-video-seconds type="number" min="2" max="60" value="5" step="1"></label>'+
+      '<label>Duración del paso de hoja <input data-video-turn type="number" min=".5" max="2" step=".1" value="1"></label>'+
+      '<label>Animación MP4 <select data-video-animation><option value="loop">Repetir durante el tiempo establecido</option><option value="complete">Reproducir el video completo una vez</option></select></label>'+
+      '<label>Archivo de salida <select data-video-format><option value="webm">WebM (recomendado)</option><option value="mp4">MP4 (solo si tu navegador lo admite)</option></select></label>'+
+      '<p class="seq-video-export-help">El video conserva el tamaño y la orientación de la pestaña capturada. Para horizontal 16:9 o vertical 9:16 ajusta la ventana antes de grabar. El lector ocultará sus controles durante la captura. Presiona Esc para detenerla.</p>'+
+      '<p data-video-export-error role="alert" class="seq-video-export-error" hidden></p>'+
+      '<div class="seq-video-export-actions"><button type="button" data-video-cancel>Cancelar</button><button type="button" data-video-start>Comenzar grabación</button></div>'+
+      '</section>';
+    root.appendChild(exportDialog);
+    const exportField=key=>exportDialog.querySelector('[data-video-'+key+']');
+    const exportError=exportDialog.querySelector('[data-video-export-error]');
+    let exporting=false,captureStopped=false,captureStream=null,mediaRecorder=null;
+    let playbackJob=null;
+    let videoAbort=false;
+
+    const mimeFor=format=>{
+      const choices=format==='mp4'
+        ?['video/mp4;codecs=avc1.42E01E','video/mp4']
+        :['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+      return choices.find(type=>window.MediaRecorder?.isTypeSupported(type))||null;
+    };
+    function displayExportError(message){
+      exportDialog.hidden=false;exportError.hidden=false;exportError.textContent=message;
+    }
+    function stopVideoExport(){
+      videoAbort=true;
+      if(mediaRecorder?.state==='recording')mediaRecorder.stop();
+      else if(captureStream)captureStream.getTracks().forEach(track=>track.stop());
+    }
+    function restoreFromCapture(){
+      exporting=false;captureStopped=true;videoAbort=true;
+      root.classList.remove('seq-recording');
+      captureStream?.getTracks().forEach(track=>track.stop());
+      captureStream=null;mediaRecorder=null;playbackJob=null;
+      pageFlip.getSettings().flippingTime=970;
+      refresh(true);
+    }
+    async function waitSeconds(ms){
+      let remaining=ms;
+      while(remaining>0&&!videoAbort&&!disposed){
+        const step=Math.min(150,remaining);
+        await new Promise(resolve=>setTimeout(resolve,step));
+        remaining-=step;
+      }
+    }
+    async function waitForReadyVideo(){
+      const playing=[...liveLayer.querySelectorAll('video')];
+      if(!playing.length)return 0;
+      await Promise.all(playing.map(video=>new Promise(resolve=>{
+        if(video.readyState>=1){resolve();return;}
+        const timer=setTimeout(resolve,1800);
+        video.addEventListener('loadedmetadata',()=>{clearTimeout(timer);resolve();},{once:true});
+      })));
+      const durations=playing.map(v=>Number.isFinite(v.duration)?v.duration:0);
+      return Math.min(180,Math.max(0,...durations));
+    }
+    async function playTour(config){
+      // PageFlip's turnToPage is an immediate jump, used only before capture.
+      pageFlip.turnToPage(0);
+      turning=false;refresh(true);
+      await waitSeconds(400);
+      const maxSteps=Math.min(sheets.length+2,260);
+      for(let step=0;step<maxSteps&&!videoAbort&&!disposed;step++){
+        await waitSeconds(180);
+        const fullDuration=config.animation==='complete'?await waitForReadyVideo():0;
+        await waitSeconds(Math.max(config.seconds,fullDuration)*1000);
+        if(videoAbort||disposed)break;
+        const before=pageFlip.getCurrentPageIndex();
+        if(before>=sheets.length-(pageFlip.getOrientation()==='portrait'?1:2))break;
+        pageFlip.flipNext('bottom');
+        // The library may shorten a flip when the distance is small.
+        // The extra settling time ensures the reader has reached 'read'.
+        await waitSeconds(config.turnMs+280);
+        let cycles=0;
+        while(pageFlip.getState()!=='read'&&!videoAbort&&cycles++<30)await waitSeconds(80);
+        if(pageFlip.getCurrentPageIndex()===before)break;
+      }
+    }
+    function startVideoExport(){
+      if(exporting)return;
+      exportError.hidden=true;exportError.textContent='';
+      if(!navigator.mediaDevices?.getDisplayMedia||!window.MediaRecorder){
+        displayExportError('Este navegador no permite grabar la pestaña. Prueba con Chrome en una computadora.');
+        return;
+      }
+      const seconds=Math.min(60,Math.max(2,Number(exportField('seconds').value)||5));
+      const turnMs=1000*Math.min(2,Math.max(.5,Number(exportField('turn').value)||1));
+      const animation=exportField('animation').value;
+      const format=exportField('format').value;
+      const mime=mimeFor(format);
+      if(!mime){
+        displayExportError(format==='mp4'?'Tu navegador no permite grabar MP4 directamente. Elige WebM.':'Tu navegador no admite grabación WebM.');
+        return;
+      }
+      // Call getDisplayMedia synchronously in the button click handler,
+      // before any await, to preserve transient user activation.
+      const permission=navigator.mediaDevices.getDisplayMedia({
+        video:{frameRate:30},audio:false,preferCurrentTab:true
+      });
+      exportDialog.hidden=true;
+      exporting=true;captureStopped=false;videoAbort=false;
+      playbackJob=(async()=>{
+        try{
+          const stream=await permission;
+          if(disposed||videoAbort){stream.getTracks().forEach(t=>t.stop());return;}
+          captureStream=stream;
+          pageFlip.getSettings().flippingTime=turnMs;
+          pageFlip.turnToPage(0);
+          turning=false;refresh(true);
+          await waitSeconds(300);
+          if(videoAbort)return;
+          const chunks=[];
+          const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8500000});
+          mediaRecorder=recorder;
+          recorder.addEventListener('dataavailable',event=>{if(event.data.size)chunks.push(event.data);});
+          const result=new Promise(resolve=>recorder.addEventListener('stop',resolve,{once:true}));
+          stream.getVideoTracks()[0]?.addEventListener('ended',()=>stopVideoExport(),{once:true});
+          root.classList.add('seq-recording');
+          recorder.start(500);
+          await playTour({seconds,turnMs,animation});
+          stopVideoExport();
+          await result;
+          const blob=new Blob(chunks,{type:recorder.mimeType||mime});
+          if(blob.size>0){
+            const href=URL.createObjectURL(blob);
+            const link=document.createElement('a');
+            link.href=href;
+            link.download=(project.title||'mi-comic').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-recorrido.'+(mime.startsWith('video/mp4')?'mp4':'webm');
+            document.body.appendChild(link);link.click();link.remove();
+            setTimeout(()=>URL.revokeObjectURL(href),30000);
+          }
+        }catch(error){
+          if(!disposed)displayExportError(error?.name==='NotAllowedError'
+            ?'Se canceló el permiso de grabación. Para exportar selecciona Esta pestaña.'
+            :'No se pudo grabar el video: '+(error?.message||error));
+        }finally{
+          restoreFromCapture();
+        }
+      })();
+    }
+    videoExportButton.addEventListener('click',()=>{
+      if(exporting)return;
+      exportError.hidden=true;exportDialog.hidden=false;
+    });
+    exportDialog.querySelector('[data-video-cancel]').addEventListener('click',()=>{exportDialog.hidden=true;});
+    exportDialog.querySelector('[data-video-start]').addEventListener('click',startVideoExport);
+    exportDialog.addEventListener('click',event=>{
+      if(event.target===exportDialog&&!exporting)exportDialog.hidden=true;
+    });
+
     function move(delta){
       if(disposed)return;
       if(delta>0)pageFlip.flipNext('bottom');
@@ -341,6 +504,7 @@
     next.addEventListener('click',()=>move(1));
     const onKey=event=>{
       if(!root.isConnected||disposed)return;
+      if(event.key==='Escape'&&exporting){event.preventDefault();stopVideoExport();return;}
       if(event.key==='ArrowRight'){event.preventDefault();move(project.direction==='rtl'?-1:1);}
       if(event.key==='ArrowLeft'){event.preventDefault();move(project.direction==='rtl'?1:-1);}
     };
@@ -353,7 +517,7 @@
     return{
       destroy(){
         if(disposed)return;
-        disposed=true;pauseAll(true);clearVideoLayer();
+        stopVideoExport();disposed=true;pauseAll(true);clearVideoLayer();
         window.removeEventListener('resize',onResize);
         document.removeEventListener('visibilitychange',onVisibility);
         document.removeEventListener('keydown',onKey);
