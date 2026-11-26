@@ -124,3 +124,7 @@
 .seq-video-export-panel label{align-items:flex-start;flex-direction:column}
 .seq-video-export-panel label input,.seq-video-export-panel label select{max-width:100%}
 }
+
+/* Sequential Lab 1.8 — deterministic video tour; avoid manual extra turns during capture. */
+.seq-reader.seq-recording .seq-curl-book .stf__block{pointer-events:none!important}
+.seq-video-export-panel select[data-video-reading]{min-width:175px}
