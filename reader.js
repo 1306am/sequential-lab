@@ -131,7 +131,7 @@
       width:Math.round(900*ratio),
       height:900,
       size:'stretch',
-      minWidth:170,
+      minWidth:250,
       maxWidth:1000,
       minHeight:230,
       maxHeight:1400,
