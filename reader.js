@@ -345,11 +345,12 @@
     exportDialog.innerHTML='<section class="seq-video-export-panel" role="dialog" aria-modal="true" aria-label="Exportar recorrido en video">'+
       '<h2>Exportar recorrido en video</h2>'+
       '<p>La aplicación pasará las hojas automáticamente y grabará el cómic. En Chrome, selecciona <strong>Esta pestaña</strong> cuando aparezca el permiso para compartir pantalla.</p>'+
-      '<label>Segundos por apertura <input data-video-seconds type="number" min="2" max="60" value="5" step="1"></label>'+
+      '<label>Segundos en pantalla <input data-video-seconds type="number" min="2" max="60" value="5" step="1"></label>'+
+      '<label>Tipo de lectura <select data-video-reading><option value="single">Página por página (recomendado)</option><option value="spread">Libro abierto (dos páginas por apertura)</option></select></label>'+
       '<label>Duración del paso de hoja <input data-video-turn type="number" min=".5" max="2" step=".1" value="1"></label>'+
       '<label>Animación MP4 <select data-video-animation><option value="loop">Repetir durante el tiempo establecido</option><option value="complete">Reproducir el video completo una vez</option></select></label>'+
       '<label>Archivo de salida <select data-video-format><option value="webm">WebM (recomendado)</option><option value="mp4">MP4 (solo si tu navegador lo admite)</option></select></label>'+
-      '<p class="seq-video-export-help">El video conserva el tamaño y la orientación de la pestaña capturada. Para horizontal 16:9 o vertical 9:16 ajusta la ventana antes de grabar. El lector ocultará sus controles durante la captura. Presiona Esc para detenerla.</p>'+
+      '<p class="seq-video-export-help">En Página por página se muestra cada hoja una vez. En Libro abierto se muestra una apertura completa: una vuelta de hoja cambia las dos páginas visibles, como en un cómic impreso. La resolución depende de la pestaña capturada. El lector oculta sus controles durante la grabación. Presiona Esc para detenerla.</p>'+
       '<p data-video-export-error role="alert" class="seq-video-export-error" hidden></p>'+
       '<div class="seq-video-export-actions"><button type="button" data-video-cancel>Cancelar</button><button type="button" data-video-start>Comenzar grabación</button></div>'+
       '</section>';
@@ -357,6 +358,7 @@
     const exportField=key=>exportDialog.querySelector('[data-video-'+key+']');
     const exportError=exportDialog.querySelector('[data-video-export-error]');
     let exporting=false,captureStopped=false,captureStream=null,mediaRecorder=null;
+    let bookWidthBeforeCapture=null,bookHeightBeforeCapture=null,pageBeforeCapture=null;
     let playbackJob=null;
     let videoAbort=false;
 
@@ -380,6 +382,31 @@
       captureStream?.getTracks().forEach(track=>track.stop());
       captureStream=null;mediaRecorder=null;playbackJob=null;
       pageFlip.getSettings().flippingTime=970;
+      if(!disposed&&bookWidthBeforeCapture!==null){
+        book.style.width=bookWidthBeforeCapture;
+        book.style.height=bookHeightBeforeCapture;
+        pageFlip.update();
+        if(pageBeforeCapture!==null)pageFlip.turnToPage(pageBeforeCapture);
+        turning=false;refresh(true);
+      }
+      bookWidthBeforeCapture=null;bookHeightBeforeCapture=null;pageBeforeCapture=null;
+    }
+    function applyRecordingLayout(readingMode){
+      bookWidthBeforeCapture=book.style.width;
+      bookHeightBeforeCapture=book.style.height;
+      pageBeforeCapture=pageFlip.getCurrentPageIndex();
+      if(readingMode==='single'){
+        // The engine enables genuine single-page portrait mode when the
+        // rendering block is narrower than twice its configured minWidth.
+        book.style.width='min(440px, calc(100vw - 94px))';
+        book.style.height='min(76dvh, calc((100vw - 94px) / var(--page-ratio)))';
+      }
+      pageFlip.update();
+      if(readingMode==='single'&&pageFlip.getOrientation()!=='portrait'){
+        throw Error('No se pudo activar la lectura individual. Prueba con una ventana más estrecha.');
+      }
+      pageFlip.turnToPage(0);
+      turning=false;
       refresh(true);
     }
     async function waitSeconds(ms){
@@ -402,25 +429,60 @@
       return Math.min(180,Math.max(0,...durations));
     }
     async function playTour(config){
-      // PageFlip's turnToPage is an immediate jump, used only before capture.
-      pageFlip.turnToPage(0);
+      // Visit each actual StPageFlip spread exactly once. Its index changes
+      // by TWO physical page IDs in landscape, but only ONE in portrait.
+      // Using currentSpreadIndex avoids confusing those normal page-ID jumps
+      // with a skipped sheet, and avoids issuing another flip mid-animation.
+      const collection=pageFlip.getPageCollection();
+      const spreadStarts=[];
+      for(let pageIndex=0;pageIndex<sheets.length;pageIndex++){
+        const spread=collection.getSpreadIndexByPage(pageIndex);
+        if(spread!==null&&spreadStarts[spread]===undefined)
+          spreadStarts[spread]=pageIndex;
+      }
+      if(!spreadStarts.length)throw Error('Este cómic no tiene páginas para grabar.');
+      pageFlip.turnToPage(spreadStarts[0]);
       turning=false;refresh(true);
       await waitSeconds(400);
-      const maxSteps=Math.min(sheets.length+2,260);
-      for(let step=0;step<maxSteps&&!videoAbort&&!disposed;step++){
-        await waitSeconds(180);
+      for(let opening=0;opening<spreadStarts.length&&!videoAbort&&!disposed;opening++){
+        if(collection.getCurrentSpreadIndex()!==opening){
+          // Prevent missing a visible opening even if the library/viewport
+          // changed during the screen-share permission dialog.
+          pageFlip.turnToPage(spreadStarts[opening]);
+          turning=false;refresh(true);
+          await waitSeconds(280);
+        }
         const fullDuration=config.animation==='complete'?await waitForReadyVideo():0;
         await waitSeconds(Math.max(config.seconds,fullDuration)*1000);
-        if(videoAbort||disposed)break;
-        const before=pageFlip.getCurrentPageIndex();
-        if(before>=sheets.length-(pageFlip.getOrientation()==='portrait'?1:2))break;
+        if(videoAbort||disposed||opening===spreadStarts.length-1)break;
+
+        const previous=collection.getCurrentSpreadIndex();
+        const expected=opening+1;
         pageFlip.flipNext('bottom');
-        // The library may shorten a flip when the distance is small.
-        // The extra settling time ensures the reader has reached 'read'.
-        await waitSeconds(config.turnMs+280);
-        let cycles=0;
-        while(pageFlip.getState()!=='read'&&!videoAbort&&cycles++<30)await waitSeconds(80);
-        if(pageFlip.getCurrentPageIndex()===before)break;
+
+        // A flip is complete only when the engine confirms BOTH the new
+        // opening and the idle ('read') state. Never use a fixed delay to
+        // start another turn; browser frame rates and paper curvature vary.
+        const deadline=Date.now()+Math.max(5500,config.turnMs*4+900);
+        let arrived=false;
+        while(!videoAbort&&!disposed&&Date.now()<deadline){
+          await waitSeconds(75);
+          const actual=collection.getCurrentSpreadIndex();
+          if(actual===expected&&pageFlip.getState()==='read'){
+            arrived=true;break;
+          }
+          if(actual>expected){
+            // Defensive guard: restore the intended opening and hold it
+            // for its entire configured duration on the next iteration.
+            pageFlip.turnToPage(spreadStarts[expected]);
+            turning=false;refresh(true);
+            arrived=true;break;
+          }
+        }
+        if(!arrived&&!videoAbort&&!disposed){
+          throw Error('El paso de hoja '+(previous+1)+' → '+(expected+1)+' no terminó. Se detuvo el recorrido para evitar saltarse páginas.');
+        }
+        await waitSeconds(230);
       }
     }
     function startVideoExport(){
@@ -433,6 +495,7 @@
       const seconds=Math.min(60,Math.max(2,Number(exportField('seconds').value)||5));
       const turnMs=1000*Math.min(2,Math.max(.5,Number(exportField('turn').value)||1));
       const animation=exportField('animation').value;
+      const reading=exportField('reading').value;
       const format=exportField('format').value;
       const mime=mimeFor(format);
       if(!mime){
@@ -452,9 +515,8 @@
           if(disposed||videoAbort){stream.getTracks().forEach(t=>t.stop());return;}
           captureStream=stream;
           pageFlip.getSettings().flippingTime=turnMs;
-          pageFlip.turnToPage(0);
-          turning=false;refresh(true);
-          await waitSeconds(300);
+          applyRecordingLayout(reading);
+          await waitSeconds(450);
           if(videoAbort)return;
           const chunks=[];
           const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8500000});
@@ -464,7 +526,7 @@
           stream.getVideoTracks()[0]?.addEventListener('ended',()=>stopVideoExport(),{once:true});
           root.classList.add('seq-recording');
           recorder.start(500);
-          await playTour({seconds,turnMs,animation});
+          await playTour({seconds,turnMs,animation,reading});
           stopVideoExport();
           await result;
           const blob=new Blob(chunks,{type:recorder.mimeType||mime});
