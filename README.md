@@ -1,9 +1,10 @@
 # SEQUENTIAL LAB · Create · Animate · Publish
 
-Editor y lector de cómics digitales para la materia de Ilustración y Narrativa Secuencial. **Funciona en el navegador, sin registro, sin servidor de almacenamiento y sin dependencias externas.**
+Editor y lector de cómics digitales para la materia de Ilustración y Narrativa Secuencial. **Funciona en el navegador, sin registro ni servidor de almacenamiento.** La importación de PDF usa PDF.js, que se descarga al utilizar esa función.
 
-## Funciones v1.0
+## Funciones v1.1
 
+- **Importar un PDF completo** en imágenes por página, ya sea como cómic nuevo o insertado en uno existente. Portada y contraportada opcionales, y detección de splash horizontal en documentos verticales.
 - Subir una **página completa** como imagen (JPG/PNG/WebP/GIF) o video (MP4/WebM).
 - Los videos se repiten **únicamente mientras su página está visible** en Reader Mode; se pausan al cambiar de página.
 - Portada, contraportada, páginas interiores y splash dobles (dos páginas de ancho).
@@ -13,6 +14,17 @@ Editor y lector de cómics digitales para la materia de Ilustración y Narrativa
 - PDF descargable con páginas estáticas; para videos se extrae el primer fotograma disponible. Las splash dobles se exportan como una página horizontal.
 - Proyecto editable `.seqlab` (ZIP sin compresión con `project.json` y archivos originales).
 - Exportación HTML ZIP independiente con `index.html`, lector y medios originales, apto para GitHub Pages.
+
+## Importar PDF
+
+1. Haz clic en **Importar PDF** y selecciona un PDF de hasta 100 MB y 120 páginas.
+2. Elige **Crear cómic desde el PDF** (reemplaza las páginas actuales) o **Agregar a este cómic**.
+3. Puedes marcar la primera hoja como portada y la última como contraportada.
+4. Cada hoja se rasteriza como JPG de hasta 1900 px de lado mayor; los vectores y el texto seleccionable del PDF no se conservan.
+5. Para convertir una página en animación, selecciónala y súbele un MP4 desde **Página completa**.
+6. Guarda el proyecto editable `.seqlab` o exporta PDF / HTML interactivo como antes.
+
+La primera importación necesita conexión a Internet para obtener PDF.js. El PDF se procesa en el navegador y no se sube a un servidor de Sequential Lab. El proyecto guarda las imágenes convertidas, no el PDF original. La numeración se desactiva automáticamente al crear un cómic nuevo desde PDF, para evitar duplicar los números impresos.
 
 ## Ejecutar localmente
 
@@ -59,6 +71,7 @@ reader.js        — lector compartido por editor y cómics exportados
 reader.css       — aspecto del lector
 zip.js           — archivador ZIP sin compresión
 pdf.js           — PDF binario de páginas JPG
+pdf-import.js    — importación de PDF con PDF.js bajo demanda
 .github/workflows/pages.yml — despliegue automático GitHub Pages
 ```
 
