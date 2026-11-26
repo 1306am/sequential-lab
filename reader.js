@@ -30,10 +30,45 @@
     function refresh(){stopVideos();draw(views[current]);counter.textContent=`${current+1} / ${views.length}`;prev.disabled=current===0;next.disabled=current===views.length-1;playVideos();}
     function getHalf(view,side){if(view.kind==='spread')return renderHalf(view.page,project,urls,numbers.get(view.page.id),side,false);return renderHalf(view[side],project,urls,view[side]&&numbers.get(view[side].id),'whole',false);}
     function move(direction){if(busy||disposed)return;const target=current+direction;if(target<0||target>=views.length)return;busy=true;stopVideos();const old=views[current],upcoming=views[target];
-      const stage=document.createElement('div');stage.className='seq-turn-stage '+(direction>0?'forward':'backward');const face=document.createElement('div');face.className='seq-turn-face';const front=getHalf(direction>0?old:upcoming,direction>0?'right':'left');const back=getHalf(direction>0?upcoming:old,direction>0?'left':'right');front.classList.add('seq-turn-front');back.classList.add('seq-turn-back');face.append(front,back);stage.appendChild(face);
-      book.textContent='';const underlying=upcoming.kind==='spread'?(()=>{const el=document.createElement('div');el.className='seq-double';el.appendChild(renderArt(upcoming.page,project,urls,numbers.get(upcoming.page.id),'whole',false));return el;})():document.createElement('div');
-      if(upcoming.kind==='spread')book.appendChild(underlying);else book.append(getHalf(upcoming,'left'),getHalf(upcoming,'right'));
-      book.appendChild(stage);stage.addEventListener('animationend',()=>{current=target;busy=false;refresh();},{once:true});setTimeout(()=>{if(busy&&!disposed){current=target;busy=false;refresh();}},780);
+      // A real book turn shows two DIFFERENT stationary pages below the moving sheet:
+      // forward: old left + next right; backward: previous left + old right.
+      // The sheet itself has two opaque faces (outgoing + incoming page).
+      const forward=direction>0;
+      const stage=document.createElement('div');
+      stage.className='seq-turn-stage '+(forward?'forward':'backward');
+      const face=document.createElement('div');
+      face.className='seq-turn-face';
+      const front=getHalf(old,forward?'right':'left');
+      const back=getHalf(upcoming,forward?'left':'right');
+      front.classList.add('seq-turn-front');
+      back.classList.add('seq-turn-back');
+      face.append(front,back);stage.appendChild(face);
+      const shadow=document.createElement('div');
+      shadow.className='seq-turn-under-shadow '+(forward?'forward':'backward');
+      book.textContent='';
+      book.classList.add('seq-book-turning');
+      book.append(
+        getHalf(forward?old:upcoming,'left'),
+        getHalf(forward?upcoming:old,'right'),
+        shadow,
+        stage
+      );
+      // Only the 3-D sheet's own animation may finish the turn. Lighting
+      // animations on its children must not end the turn prematurely.
+      let completed=false;
+      const finish=()=>{
+        if(completed||disposed)return;
+        completed=true;
+        clearTimeout(fallback);
+        current=target;
+        busy=false;
+        book.classList.remove('seq-book-turning');
+        refresh();
+      };
+      face.addEventListener('animationend',e=>{
+        if(e.target===face&&(e.animationName==='seq-forward'||e.animationName==='seq-backward'))finish();
+      });
+      const fallback=setTimeout(finish,1400);
     }
     const onKey=e=>{if(!root.isConnected)return;if(e.key==='ArrowRight'){e.preventDefault();move(project.direction==='rtl'?-1:1);}if(e.key==='ArrowLeft'){e.preventDefault();move(project.direction==='rtl'?1:-1);}};
     prev.addEventListener('click',()=>move(-1));next.addEventListener('click',()=>move(1));document.addEventListener('keydown',onKey);
