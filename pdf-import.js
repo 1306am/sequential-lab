@@ -20,7 +20,7 @@
   function asBlob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('No se pudo generar la imagen de una página.')),'image/jpeg',.92));}
   async function rasterize(file,{onProgress=()=>{},signal}={}){
     if(!file||(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'))throw Error('Selecciona un archivo PDF.');
-    if(file.size>100*1024*1024)throw Error('El PDF supera 100 MB. Divide el archivo en partes más pequeñas.');
+    if(file.size>250*1024*1024)throw Error('El PDF supera 250 MB. Comprímelo o divídelo en archivos más pequeños.');
     const lib=await ensureLibrary();
     lib.GlobalWorkerOptions.workerSrc=PDFJS_BASE+'pdf.worker.min.js';
     if(signal?.aborted)throw new DOMException('Importación cancelada','AbortError');
