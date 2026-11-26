@@ -75,12 +75,12 @@
 .seq-flip-sheet .seq-halfclip .seq-art{width:200%;height:100%}
 .seq-flip-sheet .seq-halfclip.right .seq-art{left:-100%}
 .seq-flip-sheet .seq-num{z-index:2;pointer-events:none}
-.seq-curl-book .stf__item{backface-visibility:visible}
+/* Leave page backface handling to StPageFlip's geometry engine. */
 .seq-reader-error{max-width:400px;font-size:14px;color:#facabb;text-align:center}
-@media(max-width:600px){
+@media(max-width:900px){
   .seq-book.seq-curl-book{
-    width:min(calc(78dvh * var(--page-ratio)),calc(100vw - 74px));
-    height:min(78dvh,calc((100vw - 74px) / var(--page-ratio)));
+    width:min(calc(78dvh * var(--page-ratio)),490px,calc(100vw - 74px));
+    height:min(78dvh,calc((100vw - 74px) / var(--page-ratio)),calc(490px / var(--page-ratio)));
   }
   .seq-reader-bottom>span:nth-child(2){display:none}
 }
