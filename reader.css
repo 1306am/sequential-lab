@@ -84,3 +84,17 @@
   }
   .seq-reader-bottom>span:nth-child(2){display:none}
 }
+
+/* Sequential Lab 1.6 — independent video compositor over stationary comic pages.
+   The StPageFlip engine may rasterize video when applying curved transforms. */
+.seq-live-video-layer{position:absolute;inset:0;z-index:60;pointer-events:none;overflow:visible}
+.seq-live-video-page{position:absolute;overflow:hidden;background:transparent;pointer-events:none}
+.seq-live-video-page .seq-art{position:absolute;inset:0;background:transparent!important}
+.seq-live-video-page .seq-art-panel{background:transparent;border:0}
+.seq-live-video-page .seq-art>.seq-media{width:100%;height:100%;object-fit:contain}
+.seq-live-video-page .seq-art-panel .seq-media{width:100%;height:100%}
+.seq-live-video-page .seq-halfclip{position:absolute;inset:0;overflow:hidden}
+.seq-live-video-page .seq-halfclip .seq-art{width:200%;height:100%}
+.seq-live-video-page .seq-halfclip.left .seq-art{left:0}
+.seq-live-video-page .seq-halfclip.right .seq-art{left:-100%}
+.seq-live-video-page video{display:block;pointer-events:none;object-position:center center}
