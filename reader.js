@@ -261,7 +261,7 @@
     pageFlip.on('flip',()=>refresh(false));
     pageFlip.on('changeOrientation',()=>{if(!turning)refresh(true);});
     pageFlip.on('changeState',event=>{
-      if(event.data==='flipping'){
+      if(event.data==='flipping'||event.data==='user_fold'){
         turning=true;
         pauseAll(false);
         clearVideoLayer();
