@@ -131,11 +131,21 @@
     if(!sheets.length)addSheet();
     if(sheets.length===1)addSheet();
     const ratio=Number(project.ratio)||.75;
+    const minimumPageWidth=450;
+    function syncReaderSizing(){
+      // Decide between a full-size facing spread or a full-size single page.
+      // A two-page book is only useful if BOTH pages have enough room.
+      const availableWidth=Math.max(1,root.clientWidth-42);
+      const availableHeight=Math.max(1,main.clientHeight-10);
+      const facingWidth=Math.min(availableWidth,availableHeight*ratio*2);
+      root.classList.toggle('seq-reader-one-page',facingWidth<minimumPageWidth*2);
+    }
+    syncReaderSizing();
     const pageFlip=new window.St.PageFlip(book,{
       width:Math.round(900*ratio),
       height:900,
       size:'stretch',
-      minWidth:250,
+      minWidth:minimumPageWidth,
       maxWidth:1000,
       minHeight:230,
       maxHeight:1400,
@@ -328,7 +338,12 @@
       }
     });
     pageFlip.on('init',()=>refresh(true));
-    const onResize=()=>{if(!turning)scheduleVideoLayer();};
+    const onResize=()=>{
+      if(turning)return;
+      if(!root.classList.contains('seq-recording'))syncReaderSizing();
+      pageFlip.update();
+      scheduleVideoLayer();
+    };
     const onVisibility=()=>{
       if(document.hidden){pauseAll(false);clearVideoLayer();}
       else if(!turning)refresh(true);
@@ -385,6 +400,7 @@
       if(!disposed&&bookWidthBeforeCapture!==null){
         book.style.width=bookWidthBeforeCapture;
         book.style.height=bookHeightBeforeCapture;
+        syncReaderSizing();
         pageFlip.update();
         if(pageBeforeCapture!==null)pageFlip.turnToPage(pageBeforeCapture);
         turning=false;refresh(true);
@@ -396,10 +412,11 @@
       bookHeightBeforeCapture=book.style.height;
       pageBeforeCapture=pageFlip.getCurrentPageIndex();
       if(readingMode==='single'){
-        // The engine enables genuine single-page portrait mode when the
-        // rendering block is narrower than twice its configured minWidth.
-        book.style.width='min(440px, calc(100vw - 94px))';
-        book.style.height='min(76dvh, calc((100vw - 94px) / var(--page-ratio)))';
+        // Single-page recordings can now use almost the entire available
+        // reading height, rather than being artificially capped at 440px.
+        root.classList.add('seq-reader-one-page');
+        book.style.width='min(860px, calc(var(--seq-reader-available-height) * var(--page-ratio)), calc(100vw - var(--seq-reader-side-gap)))';
+        book.style.height='min(var(--seq-reader-available-height), calc(860px / var(--page-ratio)), calc((100vw - var(--seq-reader-side-gap)) / var(--page-ratio)))';
       }
       pageFlip.update();
       if(readingMode==='single'&&pageFlip.getOrientation()!=='portrait'){
