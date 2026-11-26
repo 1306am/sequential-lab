@@ -43,10 +43,11 @@
   box-sizing:border-box;
   position:relative;
   display:block;
-  width:min(calc(76dvh * var(--book-ratio)),calc(100vw - 165px));
-  height:min(76dvh,calc((100vw - 165px) / var(--book-ratio)));
+  width:min(calc(var(--seq-reader-available-height) * var(--book-ratio)),calc(100vw - var(--seq-reader-side-gap)));
+  height:min(var(--seq-reader-available-height),calc((100vw - var(--seq-reader-side-gap)) / var(--book-ratio)));
   max-height:none;
-  min-width:0;
+  min-width:0!important;
+  min-height:0!important;
   aspect-ratio:auto;
   flex:none;
   perspective:none;
@@ -77,11 +78,11 @@
 .seq-flip-sheet .seq-num{z-index:2;pointer-events:none}
 /* Leave page backface handling to StPageFlip's geometry engine. */
 .seq-reader-error{max-width:400px;font-size:14px;color:#facabb;text-align:center}
+.seq-reader.seq-reader-one-page .seq-book.seq-curl-book{
+  width:min(calc(var(--seq-reader-available-height) * var(--page-ratio)),calc(100vw - var(--seq-reader-side-gap)));
+  height:min(var(--seq-reader-available-height),calc((100vw - var(--seq-reader-side-gap)) / var(--page-ratio)));
+}
 @media(max-width:900px){
-  .seq-book.seq-curl-book{
-    width:min(calc(78dvh * var(--page-ratio)),490px,calc(100vw - 74px));
-    height:min(78dvh,calc((100vw - 74px) / var(--page-ratio)),calc(490px / var(--page-ratio)));
-  }
   .seq-reader-bottom>span:nth-child(2){display:none}
 }
 
@@ -128,3 +129,43 @@
 /* Sequential Lab 1.8 — deterministic video tour; avoid manual extra turns during capture. */
 .seq-reader.seq-recording .seq-curl-book .stf__block{pointer-events:none!important}
 .seq-video-export-panel select[data-video-reading]{min-width:175px}
+
+/* Sequential Lab 1.9: immersive fit-to-screen reader. Navigation overlays the
+   book instead of reserving wide black gutters for navigation buttons. */
+.seq-reader{
+  --seq-reader-head:46px;
+  --seq-reader-foot:46px;
+  --seq-reader-side-gap:42px;
+  --seq-reader-available-height:calc(100dvh - var(--seq-reader-head) - var(--seq-reader-foot) - 10px);
+}
+.seq-reader-top{height:var(--seq-reader-head);padding:0 19px}
+.seq-reader-title{font-size:14px}
+.seq-reader-brand{margin-right:44px}
+.seq-reader-main{position:relative;gap:0;padding:4px 0}
+.seq-reader-bottom{min-height:var(--seq-reader-foot)}
+.seq-reader-bottom>span:nth-child(2){opacity:.7}
+.seq-reader .seq-nav{
+  position:absolute;top:50%;z-index:100;transform:translateY(-50%);
+  width:36px;height:50px;font-size:29px;
+  background:rgba(27,34,45,.79);border-color:rgba(121,138,148,.45);
+  opacity:.83;box-shadow:0 4px 14px rgba(0,0,0,.3);
+}
+.seq-reader .seq-nav.prev{left:6px}
+.seq-reader .seq-nav.next{right:6px}
+.seq-reader .seq-nav:hover:not(:disabled){opacity:1}
+.seq-reader .seq-nav:disabled{opacity:.23}
+.seq-curl-book .stf__wrapper{box-shadow:0 10px 32px rgba(0,0,0,.44)}
+@media(max-width:600px){
+  .seq-reader{
+    --seq-reader-head:40px;
+    --seq-reader-foot:42px;
+    --seq-reader-side-gap:22px;
+  }
+  .seq-reader-top{padding:0 12px}
+  .seq-reader-main{padding:3px 0}
+  .seq-reader-title{font-size:12px}
+  .seq-reader .seq-nav{width:27px;height:44px;font-size:24px;opacity:.66}
+  .seq-reader .seq-nav.prev{left:2px}
+  .seq-reader .seq-nav.next{right:2px}
+  .seq-reader-brand{display:none}
+}
